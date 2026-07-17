@@ -893,6 +893,7 @@ img { display: block; max-width: 100%; }
         <a href="#" data-seccion="envios" class="admin-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800"><i data-lucide="truck" style="width:17px;height:17px"></i>Envíos</a>
         <a href="#" data-seccion="configuracion" class="admin-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800"><i data-lucide="settings" style="width:17px;height:17px"></i>Configuración</a>
         <a href="#" data-seccion="administradores" class="admin-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800"><i data-lucide="shield" style="width:17px;height:17px"></i>Administradores</a>
+        <a href="#" data-seccion="clientes" class="admin-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800"><i data-lucide="users" style="width:17px;height:17px"></i>Clientes</a>
         <div class="h-px bg-gray-800 my-3"></div>
         <a href="#/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800"><i data-lucide="external-link" style="width:17px;height:17px"></i>Ver tienda</a>
         <a href="#" id="btn-logout" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800"><i data-lucide="log-out" style="width:17px;height:17px"></i>Cerrar sesión</a>
@@ -958,6 +959,17 @@ img { display: block; max-width: 100%; }
           <table class="w-full text-sm">
             <thead class="bg-gray-800/60 text-gray-400 text-xs uppercase"><tr><th class="text-left p-3">Email</th><th class="text-left p-3">Creado</th><th class="p-3"></th></tr></thead>
             <tbody id="tabla-administradores"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CLIENTES -->
+      <div class="admin-seccion hidden" id="seccion-clientes">
+        <h1 class="text-2xl font-bold mb-6">Clientes</h1>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-800/60 text-gray-400 text-xs uppercase"><tr><th class="text-left p-3">Nombre</th><th class="text-left p-3">Email</th><th class="text-left p-3">Teléfono</th><th class="text-left p-3">Provincia</th><th class="text-left p-3">Registrado</th><th class="p-3"></th></tr></thead>
+            <tbody id="tabla-clientes"></tbody>
           </table>
         </div>
       </div>
@@ -1099,7 +1111,7 @@ img { display: block; max-width: 100%; }
 
 <footer id="site-footer" class="border-t border-gray-800 py-8 mt-4">
   <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-500">
-    <span>&copy; <span id="anio"></span> <span id="footer-nombre">COTATO</span>. Todos los derechos reservados.Mafero17</span>
+    <span>&copy; <span id="anio"></span> <span id="footer-nombre">COTATO</span>. Todos los derechos reservados.</span>
   </div>
 </footer>
 
@@ -3095,6 +3107,7 @@ function initAdminListenersOnce() {
       else setTimeout(() => mapaAdminInstancia.invalidateSize(), 100);
     }
     if (link.dataset.seccion === "administradores") cargarAdministradoresAdmin();
+    if (link.dataset.seccion === "clientes") cargarClientesAdmin();
     cerrarMenuAdmin(); // en mobile, elegir una sección cierra el menú para ver el contenido
   });
 }
@@ -3210,6 +3223,41 @@ function initCategoriasAdminListenersOnce() {
       cargarCategoriasNav();
     } catch (err) { console.error(err); mostrarToast("No se pudo guardar", "error"); }
   });
+}
+
+/* ---------------------------------------------------------------------- */
+/* 14.2) ADMIN: CLIENTES                                                  */
+/* ---------------------------------------------------------------------- */
+let clientesCache = [];
+async function cargarClientesAdmin() {
+  const { clientes } = await api("/api/clientes");
+  clientesCache = clientes;
+  renderTablaClientes();
+}
+function renderTablaClientes() {
+  document.getElementById("tabla-clientes").innerHTML = clientesCache.map((c) => {
+    const fecha = c.fecha_registro ? new Date(c.fecha_registro.replace(" ", "T") + "Z").toLocaleDateString("es-AR") : "—";
+    return `
+    <tr class="border-t border-gray-800">
+      <td class="p-3">${escapeHTML(c.nombre || "—")}</td>
+      <td class="p-3 text-gray-400">${escapeHTML(c.email)}</td>
+      <td class="p-3 text-gray-400">${escapeHTML(c.telefono || "—")}</td>
+      <td class="p-3 text-gray-400">${escapeHTML(c.provincia || "—")}</td>
+      <td class="p-3 text-gray-500">${fecha}</td>
+      <td class="p-3 text-right"><button data-eliminar-cliente="${c.id}" class="p-1.5 text-gray-400 hover:text-red-400"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="6" class="text-center text-gray-500 p-8">Todavía no hay clientes registrados.</td></tr>`;
+
+  document.querySelectorAll("[data-eliminar-cliente]").forEach((b) => b.addEventListener("click", async () => {
+    const c = clientesCache.find((x) => x.id === b.dataset.eliminarCliente);
+    if (!(await confirmarAccion({ titulo: "¿Eliminar cliente?", mensaje: `${c?.email || ""} pierde el acceso a su cuenta. Sus pedidos ya hechos NO se borran, quedan igual en el historial.`, textoConfirmar: "Eliminar" }))) return;
+    try {
+      await api(`/api/clientes/${b.dataset.eliminarCliente}`, { method: "DELETE" });
+      mostrarToast("Cliente eliminado", "success");
+      cargarClientesAdmin();
+    } catch (err) { mostrarToast(err.message || "No se pudo eliminar", "error"); }
+  }));
+  lucide.createIcons();
 }
 
 /* ---------------------------------------------------------------------- */
