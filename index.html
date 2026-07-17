@@ -746,6 +746,29 @@ img { display: block; max-width: 100%; }
     </div>
   </div>
 </section>
+<section data-view="reset" class="vista">
+  <div class="max-w-md mx-auto px-4 py-10">
+    <h1 class="text-2xl font-bold mb-2 text-center">Nueva contraseña</h1>
+    <p id="reset-intro" class="text-sm text-gray-400 text-center mb-6">Elegí una contraseña nueva para tu cuenta.</p>
+
+    <form id="form-reset-password" class="space-y-3">
+      <div><label class="block text-xs uppercase text-gray-400 mb-1">Contraseña nueva</label>
+        <div class="relative">
+          <input type="password" id="reset-password" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
+          <button type="button" data-toggle-pass="reset-password" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
+        </div>
+      </div>
+      <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña</label><input type="password" id="reset-password-repetir" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm"></div>
+      <div id="reset-error" class="text-red-400 text-xs" style="display:none"></div>
+      <button type="submit" id="btn-reset-password" class="w-full py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Guardar contraseña</button>
+    </form>
+
+    <div id="reset-exito" style="display:none" class="text-center">
+      <p style="color:var(--texto)" class="mb-4"><i data-lucide="check-circle-2" style="width:18px;height:18px;display:inline;vertical-align:-3px"></i> Tu contraseña se actualizó. Ya podés ingresar con la nueva.</p>
+      <a href="#/cuenta" class="inline-block px-5 py-2.5 rounded-lg font-medium" style="background:var(--btn-fondo);color:var(--btn-texto)">Ir a iniciar sesión</a>
+    </div>
+  </div>
+</section>
 <section data-view="cuenta" class="vista">
   <div class="max-w-md mx-auto px-4 py-10">
 
@@ -1186,7 +1209,8 @@ img { display: block; max-width: 100%; }
       <p id="modal-desc" class="text-sm text-gray-400 mb-4"></p>
       <div id="modal-stock" class="text-sm mb-4"></div>
       <div class="flex gap-3">
-        <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2" style="background:var(--btn-fondo);color:var(--btn-texto)"><i data-lucide="shopping-bag" style="width:17px;height:17px"></i>Agregar al carrito</button>
+        <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 border" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)"><i data-lucide="shopping-bag" style="width:17px;height:17px"></i>Agregar</button>
+        <button id="modal-comprar-ahora" type="button" class="flex-1 py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Comprar</button>
         <button id="modal-fav" type="button" class="p-3 rounded-lg border border-gray-700"><i data-lucide="heart" style="width:18px;height:18px"></i></button>
       </div>
     </div>
@@ -1313,17 +1337,24 @@ if (!API_CONFIGURADA) {
   document.getElementById("banner-config").style.display = "block";
 }
 
-/** Cliente fetch con cookie de sesión (credentials: include) y manejo de errores
- *  uniforme. Reemplaza todas las llamadas a Firestore/Auth. */
+/** Cliente fetch con token de sesión (header Authorization) + cookie de respaldo,
+ *  y manejo de errores uniforme. Reemplaza todas las llamadas a Firestore/Auth.
+ *  El token viaja en el header porque la cookie cruzada entre pages.dev y
+ *  workers.dev es "de terceros" para el navegador y se bloquea en incógnito. */
+const TOKEN_KEY = "cotato_token";
 async function api(path, { method = "GET", body, timeoutMs = 9000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers = {};
+  if (body) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   let res;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
       credentials: "include",
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal
     });
@@ -1350,11 +1381,17 @@ function onAuthStateChanged(_auth, cb) {
   return () => { auth._listeners = auth._listeners.filter((c) => c !== cb); };
 }
 async function resolverSesionInicial() {
+  if (!localStorage.getItem(TOKEN_KEY)) {
+    auth.currentUser = null;
+    auth._resuelto = true;
+    notificarAuth();
+    return;
+  }
   try {
     const { sesion } = await api("/api/auth/sesion");
     if (sesion?.tipo === "cliente") auth.currentUser = { uid: sesion.cliente.id, email: sesion.cliente.email, _tipo: "cliente" };
     else if (sesion?.tipo === "admin") auth.currentUser = { uid: sesion.uid, email: sesion.email, _tipo: "admin" };
-    else auth.currentUser = null;
+    else { auth.currentUser = null; localStorage.removeItem(TOKEN_KEY); }
   } catch (e) {
     auth.currentUser = null;
   } finally {
@@ -1366,12 +1403,14 @@ async function signInWithEmailAndPassword(_auth, email, password) {
   // Intenta primero como cliente; si no existe esa cuenta, prueba como admin.
   // Un mismo formulario de login sirve para los dos casos (igual que antes con Firebase).
   try {
-    const { cliente } = await api("/api/auth/login", { method: "POST", body: { email, password } });
+    const { cliente, token } = await api("/api/auth/login", { method: "POST", body: { email, password } });
+    if (token) localStorage.setItem(TOKEN_KEY, token);
     auth.currentUser = { uid: cliente.id, email: cliente.email, _tipo: "cliente" };
     notificarAuth();
   } catch (eCliente) {
     try {
-      const { admin } = await api("/api/auth/admin-login", { method: "POST", body: { email, password } });
+      const { admin, token } = await api("/api/auth/admin-login", { method: "POST", body: { email, password } });
+      if (token) localStorage.setItem(TOKEN_KEY, token);
       auth.currentUser = { uid: admin.id, email: admin.email, _tipo: "admin" };
       notificarAuth();
     } catch (eAdmin) {
@@ -1380,7 +1419,8 @@ async function signInWithEmailAndPassword(_auth, email, password) {
   }
 }
 async function createUserWithEmailAndPassword(_auth, email, password, datosExtra = {}) {
-  const { cliente } = await api("/api/auth/registro", { method: "POST", body: { email, password, ...datosExtra } });
+  const { cliente, token } = await api("/api/auth/registro", { method: "POST", body: { email, password, ...datosExtra } });
+  if (token) localStorage.setItem(TOKEN_KEY, token);
   auth.currentUser = { uid: cliente.id, email: cliente.email, _tipo: "cliente" };
   notificarAuth();
   return { user: auth.currentUser };
@@ -1392,7 +1432,9 @@ async function updatePassword(_user, nueva) {
   await api("/api/auth/cambiar-password", { method: "POST", body: { passwordNueva: nueva } });
 }
 async function signOut(_auth) {
-  await api("/api/auth/logout", { method: "POST" });
+  try { await api("/api/auth/logout", { method: "POST" }); } catch (_) {}
+  localStorage.removeItem(TOKEN_KEY);
+  Carrito.vaciar(); // no dejar el carrito de este cliente visible para el próximo que use el dispositivo
   auth.currentUser = null;
   notificarAuth();
 }
@@ -1750,7 +1792,7 @@ function productCardHTML(p) {
     ${p.enOferta ? `<span class="absolute top-3 left-3 z-10 text-xs font-bold px-2 py-1 rounded-md bg-red-500 text-white">-${p.porcentajeDescuento}%</span>` : ""}
     ${sinStock ? `<span class="absolute top-3 left-3 z-10 text-xs font-bold px-2 py-1 rounded-md bg-gray-700 text-gray-300">Sin stock</span>` : ""}
     <button type="button" class="btn-fav absolute top-3 right-3 z-10 p-1.5 rounded-full bg-gray-900/60" data-fav="${p.id}" aria-label="Favorito">
-      <i data-lucide="heart" style="width:16px;height:16px" class="${favActivo ? "fill-current" : ""}" ${favActivo ? 'style="color:#ef4444"' : ""}></i>
+      <i data-lucide="heart" style="width:16px;height:16px${favActivo ? ";color:#ef4444" : ""}" class="${favActivo ? "fill-current" : ""}"></i>
     </button>
     <div class="pc-img h-48 bg-gray-900 flex items-center justify-center p-4 cursor-pointer abrir-producto" data-id="${p.id}">
       <img class="h-full object-contain" loading="lazy" src="${optimizarImagenUrl(p.imagenes?.[0]) || 'img/placeholder.jpg'}" alt="${escapeHTML(p.nombre)}" onerror="this.onerror=null;this.src='img/placeholder.jpg'">
@@ -1763,7 +1805,10 @@ function productCardHTML(p) {
         ${p.enOferta ? `<p class="pc-precio-old text-xs text-gray-500 line-through">${formatearPrecio(p.precio)}</p>` : ""}
       </div>
       <span class="flex-1"></span>
-      <button type="button" class="add-cart mt-3 w-full py-2 rounded-lg border text-sm font-medium transition-colors" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>${sinStock ? "Sin stock" : "Agregar"}</button>
+      <div class="flex gap-2 mt-3">
+        <button type="button" class="add-cart flex-1 py-2 rounded-lg border text-sm font-medium transition-colors" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>${sinStock ? "Sin stock" : "Agregar"}</button>
+        <button type="button" class="comprar-ahora flex-1 py-2 rounded-lg text-sm font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>Comprar</button>
+      </div>
     </div>
   </article>`;
 }
@@ -1791,6 +1836,14 @@ function bindTarjetas(cont) {
     const original = btn.textContent;
     btn.textContent = "✓ Agregado";
     setTimeout(() => (btn.textContent = original), 1200);
+  }));
+  cont.querySelectorAll(".comprar-ahora").forEach((btn) => btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (btn.disabled) return;
+    const p = await obtenerProductoPorId(btn.dataset.id);
+    if (!p) return;
+    if (!Carrito.agregar(p, 1)) return; // sin stock u otro problema: no sigue al checkout
+    abrirCheckout();
   }));
   lucide.createIcons();
 }
@@ -1835,6 +1888,7 @@ async function router() {
   if (vista === "home") await initHome(params);
   else if (vista === "favoritos") await initFavoritosVista();
   else if (vista === "cuenta") await initCuentaVista();
+  else if (vista === "reset") initResetVista(params);
   else if (vista === "contacto") initContactoVista();
   else if (vista === "admin") await initAdminVista();
 }
@@ -2249,6 +2303,12 @@ function initModalListenersOnce() {
     if (!productoModalActual) return;
     Carrito.agregar(productoModalActual, 1);
     mostrarToast("Agregado al carrito", "success");
+  });
+  document.getElementById("modal-comprar-ahora").addEventListener("click", () => {
+    if (!productoModalActual) return;
+    if (!Carrito.agregar(productoModalActual, 1)) return;
+    cerrarProductoModal?.();
+    abrirCheckout();
   });
   document.getElementById("modal-fav").addEventListener("click", () => { if (productoModalActual) { Favoritos.toggle(productoModalActual.id); actualizarFavModal(); } });
 
@@ -2682,6 +2742,38 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+function initResetVista(params) {
+  const token = params.get("token");
+  document.getElementById("form-reset-password").style.display = token ? "" : "none";
+  document.getElementById("reset-exito").style.display = "none";
+  document.getElementById("reset-error").style.display = "none";
+  document.getElementById("form-reset-password").reset();
+  if (!token) {
+    document.getElementById("reset-intro").textContent = "Este link no es válido. Pedí uno nuevo desde \"Mi cuenta\" → Olvidé mi contraseña.";
+  } else {
+    document.getElementById("reset-intro").textContent = "Elegí una contraseña nueva para tu cuenta.";
+  }
+}
+function initResetListenerOnce() {
+  document.getElementById("form-reset-password").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById("reset-error");
+    errorEl.style.display = "none";
+    const token = parseHash().params.get("token");
+    const nueva = document.getElementById("reset-password").value;
+    const repetir = document.getElementById("reset-password-repetir").value;
+    if (nueva !== repetir) { errorEl.textContent = "Las contraseñas no coinciden."; errorEl.style.display = "block"; return; }
+    try {
+      await api("/api/auth/confirmar-reset", { method: "POST", body: { token, passwordNueva: nueva } });
+      document.getElementById("form-reset-password").style.display = "none";
+      document.getElementById("reset-exito").style.display = "block";
+      lucide.createIcons();
+    } catch (err) {
+      errorEl.textContent = err.message || "No se pudo actualizar la contraseña. El link puede haber vencido.";
+      errorEl.style.display = "block";
+    }
+  });
+}
 async function initCuentaVista() {
   if (await esAdminUid(auth.currentUser?.uid)) { location.hash = "#/admin"; return; }
   if (auth.currentUser) {
@@ -4124,6 +4216,7 @@ async function initGlobal() {
   initCartListenersOnce();
   initCheckoutListenersOnce();
   initCuentaListenersOnce();
+  initResetListenerOnce();
   initContactoListenersOnce();
   initAdminListenersOnce();
   initAdministradoresListenersOnce();
