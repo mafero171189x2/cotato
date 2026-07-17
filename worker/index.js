@@ -4,6 +4,7 @@ import { handleCategorias } from "./routes/categorias.js";
 import { handlePedidos } from "./routes/pedidos.js";
 import { handleClientes } from "./routes/clientes.js";
 import { handleConfig, handleCatalogo } from "./routes/config.js";
+import { handleAdmins } from "./routes/admins.js";
 import { jsonError } from "./auth/middleware.js";
 
 // En producción, poné acá el dominio real de tu Pages (o el custom domain).
@@ -47,6 +48,8 @@ export default {
         response = await handleClientes(request, env, url);
       } else if (url.pathname.startsWith("/api/config/")) {
         response = await handleConfig(request, env, url);
+      } else if (url.pathname.startsWith("/api/admins")) {
+        response = await handleAdmins(request, env, url);
       } else {
         response = jsonError("Ruta no encontrada", 404);
       }
