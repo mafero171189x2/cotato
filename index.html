@@ -1055,10 +1055,7 @@ img { display: block; max-width: 100%; }
               <div class="text-xs mb-1" id="subiendo-banner-texto" style="color:var(--laton)">Subiendo imagen...</div>
               <div class="barra-subida"><span class="barra-subida-fill"></span></div>
             </div>
-            <details class="text-xs text-gray-500">
-              <summary class="cursor-pointer" style="color:var(--texto)">¿No funciona? Pegá el link a mano</summary>
-              <input type="text" id="cfg-banner-url" placeholder="https://i.postimg.cc/xxxxx/banner.jpg" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm mt-2">
-            </details>
+            <input type="hidden" id="cfg-banner-url">
             <img id="cfg-banner-preview" class="h-20 mt-2 rounded-lg" style="display:none">
             <button type="button" id="btn-quitar-banner" style="display:none" class="text-xs underline text-red-400 mt-2">Quitar imagen del banner</button>
           </div>
@@ -1288,6 +1285,22 @@ img { display: block; max-width: 100%; }
       <div><label class="block text-xs uppercase text-gray-400 mb-1">Orden</label><input type="number" id="cat-orden" value="0" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
       <div class="flex gap-3 pt-3">
         <button type="button" id="btn-cerrar-modal-categoria" class="px-4 py-2 rounded-lg text-gray-400">Cancelar</button>
+        <button type="submit" class="ml-auto px-5 py-2 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal cambiar contraseña de admin -->
+<div id="modal-clave-admin" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/70 p-4">
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6">
+    <h3 class="text-lg font-bold mb-1">Cambiar contraseña</h3>
+    <p id="clave-admin-email" class="text-xs text-gray-500 mb-5"></p>
+    <form id="form-clave-admin" class="space-y-3">
+      <input type="hidden" id="clave-admin-id">
+      <div><label class="block text-xs uppercase text-gray-400 mb-1">Contraseña nueva *</label><input type="password" id="clave-admin-nueva" required minlength="6" placeholder="Mínimo 6 caracteres" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div class="flex gap-3 pt-3">
+        <button type="button" id="btn-cerrar-modal-clave-admin" class="px-4 py-2 rounded-lg text-gray-400">Cancelar</button>
         <button type="submit" class="ml-auto px-5 py-2 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Guardar</button>
       </div>
     </form>
@@ -3278,11 +3291,19 @@ function renderTablaAdministradores() {
       <td class="p-3">${escapeHTML(a.email)}${esYo ? ' <span class="text-xs text-gray-500">(vos)</span>' : ""}</td>
       <td class="p-3 text-gray-500">${fecha}</td>
       <td class="p-3 text-right">
+        <button data-cambiar-clave="${a.id}" title="Cambiar contraseña" class="p-1.5 text-gray-400 hover:text-amber-400"><i data-lucide="key-round" style="width:15px;height:15px"></i></button>
         <button data-eliminar-admin="${a.id}" ${esYo ? "disabled title=\"No podés eliminar tu propia cuenta\"" : ""} class="p-1.5 text-gray-400 hover:text-red-400 ${esYo ? "opacity-30 cursor-not-allowed" : ""}"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
       </td>
     </tr>`;
   }).join("") || `<tr><td colspan="3" class="text-center text-gray-500 p-8">No hay administradores cargados.</td></tr>`;
 
+  document.querySelectorAll("[data-cambiar-clave]").forEach((b) => b.addEventListener("click", () => {
+    const a = administradoresCache.find((x) => x.id === b.dataset.cambiarClave);
+    document.getElementById("form-clave-admin").reset();
+    document.getElementById("clave-admin-id").value = b.dataset.cambiarClave;
+    document.getElementById("clave-admin-email").textContent = a?.email || "";
+    abrirModal("modal-clave-admin");
+  }));
   document.querySelectorAll("[data-eliminar-admin]").forEach((b) => b.addEventListener("click", async () => {
     const a = administradoresCache.find((x) => x.id === b.dataset.eliminarAdmin);
     if (!(await confirmarAccion({ titulo: "¿Eliminar administrador?", mensaje: `${a?.email || ""} va a perder el acceso al panel.`, textoConfirmar: "Eliminar" }))) return;
@@ -3309,6 +3330,17 @@ function initAdministradoresListenersOnce() {
       cerrarModal("modal-admin");
       cargarAdministradoresAdmin();
     } catch (err) { mostrarToast(err.message || "No se pudo crear", "error"); }
+  });
+  document.getElementById("btn-cerrar-modal-clave-admin").addEventListener("click", () => cerrarModal("modal-clave-admin"));
+  document.getElementById("form-clave-admin").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("clave-admin-id").value;
+    const password = document.getElementById("clave-admin-nueva").value;
+    try {
+      await api(`/api/admins/${id}`, { method: "PUT", body: { password } });
+      mostrarToast("Contraseña actualizada", "success");
+      cerrarModal("modal-clave-admin");
+    } catch (err) { mostrarToast(err.message || "No se pudo actualizar", "error"); }
   });
 }
 
