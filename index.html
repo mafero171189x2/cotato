@@ -811,6 +811,12 @@ img { display: block; max-width: 100%; }
             <button type="button" data-toggle-pass="cr-password" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
           </div>
         </div>
+        <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña *</label>
+          <div class="relative">
+            <input type="password" id="cr-password-repetir" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
+            <button type="button" data-toggle-pass="cr-password-repetir" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
+          </div>
+        </div>
         <p class="text-xs text-gray-500">El resto de tus datos (teléfono, dirección, etc.) los completás después, desde "Mi cuenta" — los vas a necesitar antes de poder comprar.</p>
         <div id="registrar-error" class="text-red-400 text-xs" style="display:none"></div>
         <button type="submit" id="btn-registrar-cliente" class="w-full py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Crear cuenta</button>
@@ -1304,6 +1310,13 @@ img { display: block; max-width: 100%; }
           <button type="button" data-toggle-pass="clave-admin-nueva" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
         </div>
       </div>
+      <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña nueva *</label>
+        <div class="relative">
+          <input type="password" id="clave-admin-repetir" required minlength="6" placeholder="Repetí la misma contraseña" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+          <button type="button" data-toggle-pass="clave-admin-repetir" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
+        </div>
+      </div>
+      <div id="clave-admin-error" class="text-red-400 text-xs" style="display:none"></div>
       <div class="flex gap-3 pt-3">
         <button type="button" id="btn-cerrar-modal-clave-admin" class="px-4 py-2 rounded-lg text-gray-400">Cancelar</button>
         <button type="submit" class="ml-auto px-5 py-2 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Guardar</button>
@@ -1324,6 +1337,13 @@ img { display: block; max-width: 100%; }
           <button type="button" data-toggle-pass="admin-password" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
         </div>
       </div>
+      <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña *</label>
+        <div class="relative">
+          <input type="password" id="admin-password-repetir" required minlength="6" placeholder="Repetí la misma contraseña" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+          <button type="button" data-toggle-pass="admin-password-repetir" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
+        </div>
+      </div>
+      <div id="admin-password-error" class="text-red-400 text-xs" style="display:none"></div>
       <p class="text-xs text-gray-500">Compartile esta contraseña a la persona por un medio seguro — no queda guardada en ningún lado en texto plano.</p>
       <div class="flex gap-3 pt-3">
         <button type="button" id="btn-cerrar-modal-admin" class="px-4 py-2 rounded-lg text-gray-400">Cancelar</button>
@@ -2962,6 +2982,13 @@ function initCuentaListenersOnce() {
     };
     const email = document.getElementById("cr-email").value.trim();
     const password = document.getElementById("cr-password").value;
+    const repetir = document.getElementById("cr-password-repetir").value;
+    if (password !== repetir) {
+      errorBox.textContent = "Las contraseñas no coinciden.";
+      errorBox.style.display = "block";
+      btn.disabled = false; btn.textContent = "Crear cuenta";
+      return;
+    }
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password, datos);
       mostrarToast("¡Cuenta creada! Completá tus datos en Mi cuenta antes de comprar.", "success");
@@ -3310,6 +3337,7 @@ function renderTablaAdministradores() {
   document.querySelectorAll("[data-cambiar-clave]").forEach((b) => b.addEventListener("click", () => {
     const a = administradoresCache.find((x) => x.id === b.dataset.cambiarClave);
     document.getElementById("form-clave-admin").reset();
+    document.getElementById("clave-admin-error").style.display = "none";
     document.getElementById("clave-admin-id").value = b.dataset.cambiarClave;
     document.getElementById("clave-admin-email").textContent = a?.email || "";
     abrirModal("modal-clave-admin");
@@ -3328,12 +3356,22 @@ function renderTablaAdministradores() {
 function initAdministradoresListenersOnce() {
   document.getElementById("btn-nuevo-admin").addEventListener("click", () => {
     document.getElementById("form-admin").reset();
+    document.getElementById("admin-password-error").style.display = "none";
     abrirModal("modal-admin");
   });
   document.getElementById("btn-cerrar-modal-admin").addEventListener("click", () => cerrarModal("modal-admin"));
   document.getElementById("form-admin").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const data = { email: document.getElementById("admin-email").value.trim(), password: document.getElementById("admin-password").value };
+    const errorEl = document.getElementById("admin-password-error");
+    errorEl.style.display = "none";
+    const password = document.getElementById("admin-password").value;
+    const repetir = document.getElementById("admin-password-repetir").value;
+    if (password !== repetir) {
+      errorEl.textContent = "Las contraseñas no coinciden.";
+      errorEl.style.display = "block";
+      return;
+    }
+    const data = { email: document.getElementById("admin-email").value.trim(), password };
     try {
       await api("/api/admins", { method: "POST", body: data });
       mostrarToast("Administrador creado", "success");
@@ -3344,8 +3382,16 @@ function initAdministradoresListenersOnce() {
   document.getElementById("btn-cerrar-modal-clave-admin").addEventListener("click", () => cerrarModal("modal-clave-admin"));
   document.getElementById("form-clave-admin").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const errorEl = document.getElementById("clave-admin-error");
+    errorEl.style.display = "none";
     const id = document.getElementById("clave-admin-id").value;
     const password = document.getElementById("clave-admin-nueva").value;
+    const repetir = document.getElementById("clave-admin-repetir").value;
+    if (password !== repetir) {
+      errorEl.textContent = "Las contraseñas no coinciden.";
+      errorEl.style.display = "block";
+      return;
+    }
     try {
       await api(`/api/admins/${id}`, { method: "PUT", body: { password } });
       mostrarToast("Contraseña actualizada", "success");
