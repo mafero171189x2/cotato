@@ -1082,6 +1082,10 @@ img { display: block; max-width: 100%; }
           </div>
           <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Envío gratis a partir de</label><input type="number" id="cfg-envio-gratis" placeholder="50000" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
           <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Alias / CBU para transferencias</label><input type="text" id="cfg-alias-cbu" placeholder="Ej: moda.urbana.mp" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" id="cfg-notificar-pedidos" class="w-4 h-4">
+            Avisarme por mail cuando entra un pedido nuevo
+          </label>
 
           <div class="h-px bg-gray-800 my-3"></div>
           <h3 class="font-semibold text-sm mb-1">Datos de contacto (página "Contacto")</h3>
@@ -1934,6 +1938,7 @@ function parseHash() {
 }
 async function router() {
   const { vista, param, params } = parseHash();
+  if (vista !== "admin") detenerPollingPedidosAdmin();
   document.querySelectorAll(".vista").forEach((s) => { s.classList.remove("activa"); s.style.display = ""; });
   const seccion = document.querySelector(`[data-view="${vista}"]`);
   if (!seccion) { location.hash = "#/"; return; }
@@ -3192,6 +3197,33 @@ async function initAdminVista() {
     cargarEnviosAdmin()
   ]);
   lucide.createIcons();
+  iniciarPollingPedidosAdmin();
+}
+
+// Revisa cada 20s si entró un pedido nuevo mientras estás con el panel
+// abierto, y avisa con un toast + refresca la lista — sin recargar la página.
+// Se frena solo al salir de la sección admin (ver router()).
+let pollingPedidosInterval = null;
+let ultimoPendientesConocido = null;
+function iniciarPollingPedidosAdmin() {
+  detenerPollingPedidosAdmin();
+  ultimoPendientesConocido = null;
+  pollingPedidosInterval = setInterval(async () => {
+    if (parseHash().vista !== "admin") { detenerPollingPedidosAdmin(); return; }
+    try {
+      const resumenApi = await api("/api/pedidos/resumen?admin=1");
+      const pendientesAhora = resumenApi?.pendientes ?? 0;
+      if (ultimoPendientesConocido !== null && pendientesAhora > ultimoPendientesConocido) {
+        mostrarToast("🛒 ¡Nuevo pedido recibido!", "success");
+        await cargarPedidosAdmin();
+        await cargarResumen();
+      }
+      ultimoPendientesConocido = pendientesAhora;
+    } catch (e) { /* silencioso — se reintenta solo en el próximo ciclo */ }
+  }, 20000);
+}
+function detenerPollingPedidosAdmin() {
+  if (pollingPedidosInterval) { clearInterval(pollingPedidosInterval); pollingPedidosInterval = null; }
 }
 function initAdminListenersOnce() {
   document.getElementById("btn-logout").addEventListener("click", async (e) => { e.preventDefault(); await signOut(auth); location.hash = "#/cuenta"; });
@@ -4210,6 +4242,7 @@ async function cargarConfigAdmin() {
     document.getElementById("cfg-whatsapp-preview").textContent = cfg.whatsappNumero ? `+${cfg.whatsappNumero}` : "—";
     document.getElementById("cfg-envio-gratis").value = cfg.envioGratisDesde || "";
     document.getElementById("cfg-alias-cbu").value = cfg.aliasCbu || "";
+    document.getElementById("cfg-notificar-pedidos").checked = cfg.notificarPedidoNuevo !== false;
     document.getElementById("cfg-email-contacto").value = cfg.emailContacto || "";
     document.getElementById("cfg-direccion-contacto").value = cfg.direccionContacto || "";
     if (cfg.bannerUrl) {
@@ -4383,6 +4416,7 @@ function initConfigAdminListenersOnce() {
         whatsappNumero: normalizarWhatsapp(document.getElementById("cfg-whatsapp").value),
         envioGratisDesde: Number(document.getElementById("cfg-envio-gratis").value) || 0,
         aliasCbu: document.getElementById("cfg-alias-cbu").value.trim(),
+        notificarPedidoNuevo: document.getElementById("cfg-notificar-pedidos").checked,
         emailContacto: document.getElementById("cfg-email-contacto").value.trim(),
         direccionContacto: document.getElementById("cfg-direccion-contacto").value.trim()
       };
