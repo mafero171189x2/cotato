@@ -2887,6 +2887,33 @@ function abrirEdicionDatosCliente() {
   document.getElementById("form-datos-cliente").style.display = "block";
 }
 
+function renderSeguimientoPedido(estado) {
+  if (estado === "cancelado") {
+    return `<div class="mt-2 text-xs text-red-400 flex items-center gap-1.5"><i data-lucide="x-circle" style="width:14px;height:14px"></i>Este pedido fue cancelado</div>`;
+  }
+  const pasos = [
+    { key: "pendiente", label: "Pendiente" },
+    { key: "pagado", label: "Pagado" },
+    { key: "preparacion", label: "Preparación" },
+    { key: "enviado", label: "Enviado" },
+    { key: "entregado", label: "Entregado" }
+  ];
+  const idxActual = pasos.findIndex((s) => s.key === estado);
+  return `
+    <div class="mt-3">
+      <div class="flex items-center">
+        ${pasos.map((s, i) => `
+          <div class="flex items-center ${i < pasos.length - 1 ? "flex-1" : ""}">
+            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${i <= idxActual ? "var(--btn-fondo)" : "#3f3f46"}"></div>
+            ${i < pasos.length - 1 ? `<div class="flex-1 h-0.5" style="background:${i < idxActual ? "var(--btn-fondo)" : "#3f3f46"}"></div>` : ""}
+          </div>`).join("")}
+      </div>
+      <div class="flex justify-between mt-1">
+        ${pasos.map((s, i) => `<span class="text-[10px] leading-tight" style="max-width:22%;color:${i <= idxActual ? "var(--texto)" : "#6b7280"}">${s.label}</span>`).join("")}
+      </div>
+    </div>
+  `;
+}
 async function cargarPedidosCliente() {
   const cont = document.getElementById("lista-pedidos-cliente");
   const vacio = document.getElementById("pedidos-cliente-vacio");
@@ -2903,11 +2930,13 @@ async function cargarPedidosCliente() {
         </div>
         <div class="text-xs text-gray-500 mb-2">${fechaLegible(p.fecha)}</div>
         <div class="text-sm mb-2">${formatearPrecio(p.total)} · ${p.productos?.length || 0} producto${p.productos?.length === 1 ? "" : "s"}</div>
-        <div class="flex items-center gap-3 flex-wrap">
+        ${renderSeguimientoPedido(p.estado)}
+        <div class="flex items-center gap-3 flex-wrap mt-2">
           ${p.estado === "pendiente" && p.mensajeWhatsapp ? `<a href="${linkWhatsApp(CONFIG.whatsappNumero, p.mensajeWhatsapp)}" target="_blank" class="text-xs font-semibold" style="color:#25d366">Coordinar por WhatsApp</a>` : ""}
           ${p.estado === "pendiente" ? `<button type="button" data-cancelar-pedido-cliente="${p.id}" class="text-xs text-red-400 underline">Cancelar pedido</button>` : ""}
         </div>
       </div>`).join("");
+    lucide.createIcons();
     cont.querySelectorAll("[data-cancelar-pedido-cliente]").forEach((b) => b.addEventListener("click", async () => {
       const pedido = pedidos.find((x) => x.id === b.dataset.cancelarPedidoCliente);
       if (!pedido) return;
@@ -4059,6 +4088,7 @@ function verDetallePedido(id) {
       ${linkWhatsappPedido(p) ? `<a id="link-wa-pedido" href="${linkWhatsappPedido(p)}" target="_blank" class="flex-1 py-2.5 rounded-lg font-semibold text-center flex items-center justify-center gap-2" style="background:#25d366;color:#06210f"><i data-lucide="message-circle" style="width:16px;height:16px"></i>WhatsApp</a>` : `<span class="flex-1 text-xs text-gray-500 flex items-center justify-center">Sin teléfono cargado</span>`}
       <button id="btn-guardar-estado-pedido" type="button" class="flex-1 py-2.5 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Guardar cambios</button>
     </div>
+    <button id="btn-notificar-pedido" type="button" class="w-full mt-3 py-2.5 rounded-lg font-medium border flex items-center justify-center gap-2 text-sm" style="border-color:var(--texto)55;color:var(--texto)"><i data-lucide="mail" style="width:15px;height:15px"></i>Enviar aviso por mail al cliente (estado actual: ${etiquetaEstado(p.estado)})</button>
   `;
   cont.querySelector("#cerrar-detalle-pedido").addEventListener("click", () => cerrarModal("modal-pedido"));
 
@@ -4097,6 +4127,20 @@ function verDetallePedido(id) {
       mostrarToast("No se pudo actualizar el estado", "error");
     } finally {
       btnGuardar.disabled = false; btnGuardar.textContent = "Guardar cambios";
+    }
+  });
+  cont.querySelector("#btn-notificar-pedido").addEventListener("click", async () => {
+    const btnNotif = cont.querySelector("#btn-notificar-pedido");
+    btnNotif.disabled = true; btnNotif.textContent = "Enviando...";
+    try {
+      await api(`/api/pedidos/${id}/notificar`, { method: "POST" });
+      mostrarToast("Aviso enviado al cliente", "success");
+    } catch (err) {
+      mostrarToast(err.message || "No se pudo enviar el aviso", "error");
+    } finally {
+      btnNotif.disabled = false;
+      btnNotif.innerHTML = `<i data-lucide="mail" style="width:15px;height:15px"></i>Enviar aviso por mail al cliente (estado actual: ${etiquetaEstado(p.estado)})`;
+      lucide.createIcons();
     }
   });
   abrirModal("modal-pedido");
