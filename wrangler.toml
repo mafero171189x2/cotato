@@ -1,6 +1,7 @@
 name = "cotato-api"
 main = "worker/index.js"
 compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
 
 # Base de datos D1
 [[d1_databases]]
@@ -11,5 +12,6 @@ database_id = "ada64087-a80c-4028-ae29-6ff700d72742"
 # Variables de entorno
 [vars]
 CORS_ORIGIN = "https://cotato.pages.dev"
+GMAIL_USER = "mafero171189x2@gmail.com"
 
-# JWT_SECRET se configura como secreto (ver README paso 4), NO en este archivo.
+# JWT_SECRET y GMAIL_APP_PASSWORD se configuran como secretos, NO en este archivo.
