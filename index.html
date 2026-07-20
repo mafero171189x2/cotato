@@ -1938,7 +1938,6 @@ function parseHash() {
 }
 async function router() {
   const { vista, param, params } = parseHash();
-  if (vista !== "admin") detenerPollingPedidosAdmin();
   document.querySelectorAll(".vista").forEach((s) => { s.classList.remove("activa"); s.style.display = ""; });
   const seccion = document.querySelector(`[data-view="${vista}"]`);
   if (!seccion) { location.hash = "#/"; return; }
@@ -3197,26 +3196,23 @@ async function initAdminVista() {
     cargarEnviosAdmin()
   ]);
   lucide.createIcons();
-  iniciarPollingPedidosAdmin();
 }
 
-// Revisa cada 20s si entró un pedido nuevo mientras estás con el panel
-// abierto, y avisa con un toast + refresca la lista — sin recargar la página.
-// Se frena solo al salir de la sección admin (ver router()).
+// Revisa cada 20s si entró un pedido nuevo, en cualquier página de la tienda
+// (no solo con el panel admin abierto), mientras estés logueado como admin.
+// Avisa con un toast y, si el panel admin está abierto, refresca la lista sola.
 let pollingPedidosInterval = null;
 let ultimoPendientesConocido = null;
 function iniciarPollingPedidosAdmin() {
-  detenerPollingPedidosAdmin();
+  if (pollingPedidosInterval) return; // ya está corriendo, no duplicar
   ultimoPendientesConocido = null;
   pollingPedidosInterval = setInterval(async () => {
-    if (parseHash().vista !== "admin") { detenerPollingPedidosAdmin(); return; }
     try {
       const resumenApi = await api("/api/pedidos/resumen?admin=1");
       const pendientesAhora = resumenApi?.pendientes ?? 0;
       if (ultimoPendientesConocido !== null && pendientesAhora > ultimoPendientesConocido) {
         mostrarToast("🛒 ¡Nuevo pedido recibido!", "success");
-        await cargarPedidosAdmin();
-        await cargarResumen();
+        if (parseHash().vista === "admin") { await cargarPedidosAdmin(); await cargarResumen(); }
       }
       ultimoPendientesConocido = pendientesAhora;
     } catch (e) { /* silencioso — se reintenta solo en el próximo ciclo */ }
@@ -3225,6 +3221,12 @@ function iniciarPollingPedidosAdmin() {
 function detenerPollingPedidosAdmin() {
   if (pollingPedidosInterval) { clearInterval(pollingPedidosInterval); pollingPedidosInterval = null; }
 }
+// Prende/apaga el polling según la sesión — así avisa en cualquier página,
+// no solo con el panel admin abierto, y se apaga solo al cerrar sesión.
+onAuthStateChanged(auth, (user) => {
+  if (user?._tipo === "admin") iniciarPollingPedidosAdmin();
+  else detenerPollingPedidosAdmin();
+});
 function initAdminListenersOnce() {
   document.getElementById("btn-logout").addEventListener("click", async (e) => { e.preventDefault(); await signOut(auth); location.hash = "#/cuenta"; });
 
