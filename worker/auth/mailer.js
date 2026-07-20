@@ -1,13 +1,14 @@
 // Envío de emails transaccionales por SMTP de Gmail, usando tu propia cuenta.
-// NO necesita dominio propio verificado — el mail sale realmente de los
-// servidores de Google (con tu Gmail real como remitente), así que llega a
-// cualquier destinatario.
+// Ventaja sobre Resend/Brevo: NO necesita dominio propio verificado, porque
+// el mail sale realmente de los servidores de Google (con tu Gmail real como
+// remitente) — así que llega a cualquier destinatario, no solo a vos.
 //
-// Requiere en el Worker:
+// Requiere en el Worker (ver README):
 //   - env.GMAIL_USER          → variable normal en wrangler.toml, tu email de Gmail
 //   - env.GMAIL_APP_PASSWORD  → secreto, wrangler secret put GMAIL_APP_PASSWORD
 //                                (una "contraseña de aplicación" de Google,
-//                                NO tu contraseña normal de Gmail)
+//                                NO tu contraseña normal de Gmail — se genera
+//                                en myaccount.google.com con 2FA activado)
 import { WorkerMailer } from "worker-mailer";
 
 export async function enviarEmailReset(env, destinatarioEmail, link) {
@@ -86,6 +87,51 @@ export async function enviarEmailEstadoPedido(env, destinatarioEmail, pedido) {
     return true;
   } catch (err) {
     console.error("Error enviando aviso de pedido vía Gmail SMTP:", err);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Aviso de PEDIDO NUEVO — este sí es automático, se dispara solo en cada
+// checkout (a diferencia del aviso de cambio de estado, que es manual).
+// Se manda al email de contacto configurado en la tienda (o al de Gmail si
+// no hay uno cargado).
+// ---------------------------------------------------------------------------
+export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido) {
+  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
+    console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo avisar del pedido nuevo");
+    return false;
+  }
+  const listaItems = pedido.items.map((i) => `${i.cantidad}x ${i.nombre} — $${(i.precio * i.cantidad).toLocaleString("es-AR")}`).join("<br>");
+  try {
+    await WorkerMailer.send(
+      {
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        authType: "login",
+        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
+      },
+      {
+        from: { name: "COTATO", email: env.GMAIL_USER },
+        to: destinatarioEmail,
+        subject: `🛒 Nuevo pedido ${pedido.numeroPedido} — $${pedido.total.toLocaleString("es-AR")}`,
+        html: `
+          <p>Entró un pedido nuevo en COTATO.</p>
+          <p><strong>Pedido:</strong> ${pedido.numeroPedido}<br>
+          <strong>Cliente:</strong> ${pedido.clienteNombre}<br>
+          <strong>Teléfono:</strong> ${pedido.clienteTelefono || "—"}</p>
+          <p><strong>Productos:</strong><br>${listaItems}</p>
+          <p><strong>Subtotal:</strong> $${pedido.total.toLocaleString("es-AR")}<br>
+          <strong>Envío:</strong> $${pedido.envio.toLocaleString("es-AR")}<br>
+          <strong>Total:</strong> $${(pedido.total + pedido.envio).toLocaleString("es-AR")}</p>
+          <p>Entrá al panel para confirmarlo.</p>
+        `
+      }
+    );
+    return true;
+  } catch (err) {
+    console.error("Error avisando pedido nuevo vía Gmail SMTP:", err);
     return false;
   }
 }
