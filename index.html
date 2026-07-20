@@ -876,6 +876,10 @@ img { display: block; max-width: 100%; }
       <h2 class="font-semibold text-sm mb-3">Mis pedidos</h2>
       <div id="lista-pedidos-cliente" class="space-y-3"></div>
       <p id="pedidos-cliente-vacio" class="text-sm text-gray-500" style="display:none">Todavía no hiciste ningún pedido.</p>
+
+      <div class="mt-8 pt-6 border-t border-gray-800">
+        <button type="button" id="btn-eliminar-mi-cuenta" class="text-xs text-red-400 underline">Eliminar mi cuenta</button>
+      </div>
     </div>
   </div>
 </section>
@@ -3006,6 +3010,18 @@ function initCuentaListenersOnce() {
   document.getElementById("btn-logout-cliente").addEventListener("click", async () => {
     await signOut(auth);
     location.hash = "#/";
+  });
+
+  document.getElementById("btn-eliminar-mi-cuenta").addEventListener("click", async () => {
+    if (!(await confirmarAccion({ titulo: "¿Eliminar tu cuenta?", mensaje: "Esta acción no se puede deshacer. Vas a perder el acceso y tus datos guardados (dirección, teléfono, etc.). Tus pedidos ya hechos van a seguir apareciendo en el historial de la tienda, sin tu cuenta asociada.", textoConfirmar: "Eliminar mi cuenta" }))) return;
+    try {
+      await api("/api/clientes/yo", { method: "DELETE" });
+      await signOut(auth);
+      location.hash = "#/";
+      mostrarToast("Tu cuenta fue eliminada", "success");
+    } catch (err) {
+      mostrarToast(err.message || "No se pudo eliminar la cuenta", "error");
+    }
   });
 
   document.getElementById("btn-editar-datos-cliente").addEventListener("click", abrirEdicionDatosCliente);
