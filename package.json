@@ -1,0 +1,9 @@
+{
+  "name": "cotato",
+  "version": "1.0.0",
+  "description": "COTATO - Worker API",
+  "main": "worker/index.js",
+  "dependencies": {
+    "worker-mailer": "^1.0.0"
+  }
+}
