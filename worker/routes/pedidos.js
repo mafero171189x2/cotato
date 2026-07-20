@@ -84,9 +84,11 @@ export async function handlePedidos(request, env, url) {
 
     // Aviso automático al admin — si falla el mail, no arruina la compra igual.
     try {
-      const emailContacto = cfgGeneral ? (JSON.parse(cfgGeneral.valor).emailContacto || "") : "";
+      const cfgParseada = cfgGeneral ? JSON.parse(cfgGeneral.valor) : {};
+      const notificarActivo = cfgParseada.notificarPedidoNuevo !== false; // activado por defecto
+      const emailContacto = cfgParseada.emailContacto || "";
       const destinatario = emailContacto || env.GMAIL_USER;
-      if (destinatario) {
+      if (notificarActivo && destinatario) {
         await enviarEmailNuevoPedidoAdmin(env, destinatario, {
           numeroPedido, total, envio: rEnvio.costo,
           clienteNombre: datosCliente.nombre, clienteTelefono: datosCliente.telefono || "",
