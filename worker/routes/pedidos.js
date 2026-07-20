@@ -1,7 +1,7 @@
 import { requiereCliente, requiereAdmin, jsonError, json } from "../auth/middleware.js";
 import { mapPedido, uuid } from "../database/mappers.js";
 import { calcularEnvio } from "../database/envios.js";
-import { enviarEmailEstadoPedido } from "../auth/mailer.js";
+import { enviarEmailEstadoPedido, enviarEmailNuevoPedidoAdmin } from "../auth/mailer.js";
 
 function generarNumeroPedido() {
   const d = new Date();
@@ -81,6 +81,21 @@ export async function handlePedidos(request, env, url) {
              datosCliente.ciudad || "", datosCliente.provincia, datosCliente.codigoPostal || "", sesion.uid)
     ];
     await env.DB.batch(statements);
+
+    // Aviso automático al admin — si falla el mail, no arruina la compra igual.
+    try {
+      const emailContacto = cfgGeneral ? (JSON.parse(cfgGeneral.valor).emailContacto || "") : "";
+      const destinatario = emailContacto || env.GMAIL_USER;
+      if (destinatario) {
+        await enviarEmailNuevoPedidoAdmin(env, destinatario, {
+          numeroPedido, total, envio: rEnvio.costo,
+          clienteNombre: datosCliente.nombre, clienteTelefono: datosCliente.telefono || "",
+          items: itemsVerificados
+        });
+      }
+    } catch (err) {
+      console.error("No se pudo avisar el pedido nuevo:", err);
+    }
 
     return json({ numeroPedido, pedidoId, mensajeWhatsapp, total, envio: rEnvio.costo }, 201);
   }
