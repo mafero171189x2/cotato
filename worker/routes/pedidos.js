@@ -27,6 +27,7 @@ export async function handlePedidos(request, env, url) {
       return jsonError("Faltan datos de envío", 400);
     }
 
+    // Releer productos DESDE LA BASE (nunca confiar en precio/stock del cliente)
     const ids = items.map((i) => i.productoId);
     const placeholders = ids.map(() => "?").join(",");
     const { results: frescos } = await env.DB.prepare(`SELECT * FROM productos WHERE id IN (${placeholders})`).bind(...ids).all();
@@ -54,6 +55,8 @@ export async function handlePedidos(request, env, url) {
     const lineaAlias = aliasCbu ? `\n\nPara transferir: ${aliasCbu}` : "";
     const mensajeWhatsapp = `¡Hola! Quiero confirmar mi pedido N° ${numeroPedido}.\n\nCliente: ${datosCliente.nombre}\nDirección: ${direccionCompleta}\n\nProductos:\n${lista}\n\nSubtotal: $${total.toLocaleString("es-AR")}\nEnvío (${rEnvio.zonaNombre}): $${rEnvio.costo.toLocaleString("es-AR")}\nTOTAL: $${(total + rEnvio.costo).toLocaleString("es-AR")}${lineaAlias}\n\nYa transfiero y te mando el comprobante.`;
 
+    // Batch atómico: inserta pedido + items + descuenta stock. D1 .batch()
+    // ejecuta todo en una transacción: si algo falla, no se aplica nada.
     const statements = [
       env.DB.prepare(
         `INSERT INTO pedidos (id, numero_pedido, cliente_id, cliente_nombre, cliente_telefono, direccion, entre_calles, ciudad, provincia, codigo_postal, notas, total, envio, zona_envio, estado, stock_devuelto, mensaje_whatsapp)
@@ -88,8 +91,8 @@ export async function handlePedidos(request, env, url) {
     if (esAdminReq) {
       await requiereAdmin(request, env);
       const estado = url.searchParams.get("estado") || "";
-      const desde = url.searchParams.get("desde");
-      const hasta = url.searchParams.get("hasta");
+      const desde = url.searchParams.get("desde"); // ISO
+      const hasta = url.searchParams.get("hasta"); // ISO
       const limite = Math.min(200, Number(url.searchParams.get("limite")) || 50);
       const offset = Number(url.searchParams.get("offset")) || 0;
       let sql = "SELECT * FROM pedidos WHERE 1=1";
@@ -151,7 +154,7 @@ export async function handlePedidos(request, env, url) {
   if (method === "PUT" && id) {
     await requiereAdmin(request, env);
     const { estado: nuevoEstado, envio } = await request.json();
-    const validos = ["pendiente", "pagado", "preparacion", "enviado", "entregado", "cancelado"];
+    const validos = ["pendiente", "pagado", "preparacion", "enviado", "cancelado"];
     if (!validos.includes(nuevoEstado)) return jsonError("Estado inválido", 400);
     const pedido = await env.DB.prepare("SELECT * FROM pedidos WHERE id = ?").bind(id).first();
     if (!pedido) return jsonError("Pedido no encontrado", 404);
@@ -160,6 +163,7 @@ export async function handlePedidos(request, env, url) {
       await devolverStockYCancelar(env, pedido);
       if (envio !== undefined) await env.DB.prepare("UPDATE pedidos SET envio = ? WHERE id = ?").bind(Number(envio) || 0, id).run();
     } else if (nuevoEstado !== "cancelado" && pedido.estado === "cancelado" && pedido.stock_devuelto) {
+      // Reactivar un pedido cancelado: vuelve a descontar el stock que se había devuelto.
       const { results: items } = await env.DB.prepare("SELECT * FROM pedido_items WHERE pedido_id = ?").bind(id).all();
       const statements = [
         env.DB.prepare("UPDATE pedidos SET estado = ?, stock_devuelto = 0, envio = ? WHERE id = ?").bind(nuevoEstado, Number(envio) || pedido.envio, id),
