@@ -74,6 +74,10 @@ export async function handleAuth(request, env, url) {
   }
 
   // ---- CAMBIO DE CONTRASEÑA (cliente logueado) ------------------------------
+  // Nota de seguridad: el formulario original no pide la contraseña actual,
+  // así que acá confiamos en la cookie de sesión (httpOnly, firmada) como
+  // prueba de identidad — igual de fuerte que lo que hacía Firebase Auth
+  // mientras la sesión esté vigente y no haya pasado por "recent login".
   if (path === "/api/auth/cambiar-password" && method === "POST") {
     const sesion = await requiereCliente(request, env);
     const { passwordNueva } = await request.json();
@@ -84,12 +88,16 @@ export async function handleAuth(request, env, url) {
   }
 
   // ---- RECUPERAR CONTRASEÑA: pedir link -------------------------------------
+  // Nota: acá NO se manda el email (eso requeriría un servicio de mail, ej.
+  // Resend/Mailgun vía fetch desde el Worker). Se genera el token y se devuelve
+  // el link — conectalo a tu proveedor de mail en producción (ver README).
   if (path === "/api/auth/solicitar-reset" && method === "POST") {
     const { email } = await request.json();
     const row = await env.DB.prepare("SELECT id, email FROM clientes WHERE email = ?").bind((email || "").toLowerCase()).first();
+    // Responde igual exista o no la cuenta (no revelar si un email está registrado).
     if (row) {
       const token = uuid();
-      const exp = new Date(Date.now() + 1000 * 60 * 60).toISOString();
+      const exp = new Date(Date.now() + 1000 * 60 * 60).toISOString(); // 1 hora
       await env.DB.prepare("UPDATE clientes SET reset_token = ?, reset_token_exp = ? WHERE id = ?").bind(token, exp, row.id).run();
       const origenFrontend = env.CORS_ORIGIN && env.CORS_ORIGIN !== "*" ? env.CORS_ORIGIN : url.origin;
       const link = `${origenFrontend}/#/reset?token=${token}`;

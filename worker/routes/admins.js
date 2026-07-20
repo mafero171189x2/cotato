@@ -32,6 +32,20 @@ export async function handleAdmins(request, env, url) {
     return json({ admin: row }, 201);
   }
 
+  // ---- CAMBIAR CONTRASEÑA -------------------------------------------------
+  if (method === "PUT" && id) {
+    await requiereAdmin(request, env);
+    const { password } = await request.json();
+    if (!password || password.length < 6) {
+      return jsonError("La contraseña debe tener al menos 6 caracteres", 400);
+    }
+    const existente = await env.DB.prepare("SELECT id FROM admins WHERE id = ?").bind(id).first();
+    if (!existente) return jsonError("Admin no encontrado", 404);
+    const hash = await hashPassword(password);
+    await env.DB.prepare("UPDATE admins SET password_hash = ? WHERE id = ?").bind(hash, id).run();
+    return json({ ok: true });
+  }
+
   // ---- ELIMINAR --------------------------------------------------------
   if (method === "DELETE" && id) {
     const sesion = await requiereAdmin(request, env);

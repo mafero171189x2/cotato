@@ -49,6 +49,9 @@ export async function handleClientes(request, env, url) {
   }
 
   // ---- ELIMINAR MI PROPIA CUENTA (cliente logueado) ---------------------
+  // Mismo criterio que cuando lo hace un admin: los pedidos ya hechos NO se
+  // borran (quedan con los datos de ese momento guardados aparte), solo se
+  // borra la cuenta y el carrito.
   if (method === "DELETE" && url.pathname === "/api/clientes/yo") {
     const sesion = await requiereCliente(request, env);
     await env.DB.batch([
@@ -59,6 +62,10 @@ export async function handleClientes(request, env, url) {
   }
 
   // ---- ELIMINAR CUENTA (admin) -----------------------------------------
+  // Los pedidos ya hechos por este cliente NO se borran ni se rompen: el
+  // nombre/teléfono/dirección de cada pedido quedan guardados aparte (una
+  // "foto" de esos datos al momento de comprar), así que el historial de
+  // ventas se conserva intacto aunque la cuenta del cliente ya no exista.
   if (method === "DELETE" && seg2 && seg2 !== "yo" && seg2 !== "carrito") {
     await requiereAdmin(request, env);
     const cliente = await env.DB.prepare("SELECT id FROM clientes WHERE id = ?").bind(seg2).first();
