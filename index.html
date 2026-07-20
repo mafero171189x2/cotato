@@ -851,8 +851,11 @@ img { display: block; max-width: 100%; }
       </div>
 
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
-        <h2 class="font-semibold text-sm mb-4">Cambiar contraseña</h2>
-        <form id="form-cambiar-password" class="space-y-3">
+        <button type="button" id="btn-mostrar-cambiar-password" class="font-semibold text-sm flex items-center gap-2 w-full text-left">
+          <i data-lucide="lock" style="width:15px;height:15px"></i>Cambiar contraseña
+          <i data-lucide="chevron-down" id="icono-toggle-cambiar-password" style="width:15px;height:15px" class="ml-auto"></i>
+        </button>
+        <form id="form-cambiar-password" class="space-y-3 mt-4" style="display:none">
           <div>
             <label class="block text-xs uppercase text-gray-400 mb-1">Contraseña nueva</label>
             <div class="relative">
@@ -2889,27 +2892,29 @@ function abrirEdicionDatosCliente() {
 
 function renderSeguimientoPedido(estado) {
   if (estado === "cancelado") {
-    return `<div class="mt-2 text-xs text-red-400 flex items-center gap-1.5"><i data-lucide="x-circle" style="width:14px;height:14px"></i>Este pedido fue cancelado</div>`;
+    return `<div class="mt-3 text-xs text-red-400 flex items-center gap-1.5 bg-red-500/10 rounded-lg px-3 py-2"><i data-lucide="x-circle" style="width:14px;height:14px"></i>Este pedido fue cancelado</div>`;
   }
+  // "Entregado" no es un estado que gestione la tienda — depende del correo/transportista,
+  // así que el seguimiento propio llega hasta "Enviado".
   const pasos = [
-    { key: "pendiente", label: "Pendiente" },
-    { key: "pagado", label: "Pagado" },
-    { key: "preparacion", label: "Preparación" },
-    { key: "enviado", label: "Enviado" },
-    { key: "entregado", label: "Entregado" }
+    { key: "pendiente", label: "Pendiente", icono: "clock" },
+    { key: "pagado", label: "Pagado", icono: "credit-card" },
+    { key: "preparacion", label: "Preparando", icono: "package" },
+    { key: "enviado", label: "Enviado", icono: "truck" }
   ];
-  const idxActual = pasos.findIndex((s) => s.key === estado);
+  let idxActual = pasos.findIndex((s) => s.key === estado);
+  if (idxActual === -1) idxActual = pasos.length - 1; // estados viejos/desconocidos -> mostrar completo
   return `
     <div class="mt-3">
       <div class="flex items-center">
         ${pasos.map((s, i) => `
-          <div class="flex items-center ${i < pasos.length - 1 ? "flex-1" : ""}">
-            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${i <= idxActual ? "var(--btn-fondo)" : "#3f3f46"}"></div>
-            ${i < pasos.length - 1 ? `<div class="flex-1 h-0.5" style="background:${i < idxActual ? "var(--btn-fondo)" : "#3f3f46"}"></div>` : ""}
+          ${i > 0 ? `<div class="flex-1 h-0.5" style="background:${i <= idxActual ? "var(--btn-fondo)" : "#3f3f46"}"></div>` : ""}
+          <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style="background:${i <= idxActual ? "var(--btn-fondo)" : "#27272a"}">
+            <i data-lucide="${i < idxActual ? "check" : s.icono}" style="width:14px;height:14px;color:${i <= idxActual ? "var(--btn-texto)" : "#71717a"}"></i>
           </div>`).join("")}
       </div>
-      <div class="flex justify-between mt-1">
-        ${pasos.map((s, i) => `<span class="text-[10px] leading-tight" style="max-width:22%;color:${i <= idxActual ? "var(--texto)" : "#6b7280"}">${s.label}</span>`).join("")}
+      <div class="flex mt-1">
+        ${pasos.map((s, i) => `<span class="text-[10px] flex-1 ${i === 0 ? "text-left" : i === pasos.length - 1 ? "text-right" : "text-center"}" style="color:${i <= idxActual ? "var(--texto)" : "#6b7280"}">${s.label}</span>`).join("")}
       </div>
     </div>
   `;
@@ -3074,6 +3079,13 @@ function initCuentaListenersOnce() {
     } catch (err) { console.error(err); mostrarToast("No se pudieron guardar los datos", "error"); }
   });
 
+  document.getElementById("btn-mostrar-cambiar-password").addEventListener("click", () => {
+    const form = document.getElementById("form-cambiar-password");
+    const icono = document.getElementById("icono-toggle-cambiar-password");
+    const abierto = form.style.display !== "none";
+    form.style.display = abierto ? "none" : "block";
+    icono.style.transform = abierto ? "" : "rotate(180deg)";
+  });
   document.getElementById("form-cambiar-password").addEventListener("submit", async (e) => {
     e.preventDefault();
     const errorBox = document.getElementById("cambiar-password-error");
@@ -4082,7 +4094,7 @@ function verDetallePedido(id) {
     <div class="text-right font-bold text-lg mb-5">Total con envío: <span id="total-con-envio" style="color:var(--texto)">${formatearPrecio((Number(p.total) || 0) + (Number(p.envio) || 0))}</span></div>
     <label class="block text-xs uppercase text-gray-400 mb-1.5">Estado del pedido</label>
     <select id="select-estado-pedido" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mb-4">
-      ${["pendiente","pagado","preparacion","enviado","entregado","cancelado"].map((e) => `<option value="${e}" ${p.estado === e ? "selected" : ""}>${etiquetaEstado(e)}</option>`).join("")}
+      ${["pendiente","pagado","preparacion","enviado","cancelado"].map((e) => `<option value="${e}" ${p.estado === e ? "selected" : ""}>${etiquetaEstado(e)}</option>`).join("")}
     </select>
     <div class="flex gap-3">
       ${linkWhatsappPedido(p) ? `<a id="link-wa-pedido" href="${linkWhatsappPedido(p)}" target="_blank" class="flex-1 py-2.5 rounded-lg font-semibold text-center flex items-center justify-center gap-2" style="background:#25d366;color:#06210f"><i data-lucide="message-circle" style="width:16px;height:16px"></i>WhatsApp</a>` : `<span class="flex-1 text-xs text-gray-500 flex items-center justify-center">Sin teléfono cargado</span>`}
