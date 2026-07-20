@@ -1059,54 +1059,74 @@ img { display: block; max-width: 100%; }
 
       <div class="admin-seccion hidden" id="seccion-configuracion">
         <h1 class="text-2xl font-bold mb-6">Configuración de la tienda</h1>
-        <form id="form-configuracion" class="max-w-xl space-y-4">
-          <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Nombre de la tienda</label><input type="text" id="cfg-nombre" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
-          <div>
-            <label class="block text-xs uppercase text-gray-400 mb-1.5">Imagen del banner (hero)</label>
-            <input type="file" id="cfg-banner-file" accept="image/*" class="text-sm block mb-2">
-            <div id="subiendo-banner" style="display:none" class="mb-2">
-              <div class="text-xs mb-1" id="subiendo-banner-texto" style="color:var(--laton)">Subiendo imagen...</div>
-              <div class="barra-subida"><span class="barra-subida-fill"></span></div>
-            </div>
-            <input type="hidden" id="cfg-banner-url">
-            <img id="cfg-banner-preview" class="h-20 mt-2 rounded-lg" style="display:none">
-            <button type="button" id="btn-quitar-banner" style="display:none" class="text-xs underline text-red-400 mt-2">Quitar imagen del banner</button>
-          </div>
-          <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Título del banner</label><input type="text" id="cfg-banner-titulo" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
-          <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Subtítulo del banner</label><input type="text" id="cfg-banner-subtitulo" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
-          <div>
-            <label class="block text-xs uppercase text-gray-400 mb-1.5">WhatsApp para recibir pedidos</label>
-            <input type="text" id="cfg-whatsapp" placeholder="Ej: 1130323702 (como lo digas normalmente)" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm">
-            <p class="text-xs text-gray-500 mt-1">Se va a guardar como: <span id="cfg-whatsapp-preview" style="color:var(--texto)">—</span> — revisá que sea correcto antes de guardar.</p>
-            <p class="text-xs text-gray-500 mt-1">Este mismo número se muestra como teléfono en la página de Contacto.</p>
-          </div>
-          <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Envío gratis a partir de</label><input type="number" id="cfg-envio-gratis" placeholder="50000" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
-          <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Alias / CBU para transferencias</label><input type="text" id="cfg-alias-cbu" placeholder="Ej: moda.urbana.mp" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
-          <label class="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" id="cfg-notificar-pedidos" class="w-4 h-4">
-            Avisarme por mail cuando entra un pedido nuevo
-          </label>
+        <form id="form-configuracion" class="max-w-xl space-y-6">
 
-          <div class="h-px bg-gray-800 my-3"></div>
-          <h3 class="font-semibold text-sm mb-1">Datos de contacto (página "Contacto")</h3>
-          <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Email</label><input type="email" id="cfg-email-contacto" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
-          <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Dirección</label><input type="text" id="cfg-direccion-contacto" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
-          <div>
-            <label class="block text-xs uppercase text-gray-400 mb-1.5">Ubicación en el mapa</label>
-            <p class="text-xs text-gray-500 mb-2">Buscá tu dirección, usá tu ubicación actual, o tocá directo en el mapa para marcar dónde estás.</p>
-            <div class="relative mb-2">
-              <input type="text" id="mapa-buscador" placeholder="Buscar dirección..." class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm">
-              <div id="mapa-buscador-resultados" style="display:none" class="absolute left-0 right-0 top-full mt-1 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden z-10 max-h-48 overflow-y-auto"></div>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h2 class="font-semibold text-sm mb-4">Identidad de la tienda</h2>
+            <div class="space-y-4">
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Nombre de la tienda</label><input type="text" id="cfg-nombre" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+              <div>
+                <label class="block text-xs uppercase text-gray-400 mb-1.5">Imagen del banner (hero)</label>
+                <input type="file" id="cfg-banner-file" accept="image/*" class="text-sm block mb-2">
+                <div id="subiendo-banner" style="display:none" class="mb-2">
+                  <div class="text-xs mb-1" id="subiendo-banner-texto" style="color:var(--laton)">Subiendo imagen...</div>
+                  <div class="barra-subida"><span class="barra-subida-fill"></span></div>
+                </div>
+                <input type="hidden" id="cfg-banner-url">
+                <img id="cfg-banner-preview" class="h-20 mt-2 rounded-lg" style="display:none">
+                <button type="button" id="btn-quitar-banner" style="display:none" class="text-xs underline text-red-400 mt-2">Quitar imagen del banner</button>
+              </div>
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Título del banner</label><input type="text" id="cfg-banner-titulo" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Subtítulo del banner</label><input type="text" id="cfg-banner-subtitulo" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
             </div>
-            <div class="flex gap-4 mb-2">
-              <button type="button" id="btn-mi-ubicacion" class="text-xs flex items-center gap-1.5" style="color:var(--texto)">
-                <i data-lucide="locate-fixed" style="width:14px;height:14px"></i> Usar mi ubicación actual
-              </button>
-              <button type="button" id="btn-quitar-ubicacion" class="text-xs flex items-center gap-1.5 text-red-400">
-                <i data-lucide="trash-2" style="width:14px;height:14px"></i> Quitar ubicación
-              </button>
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h2 class="font-semibold text-sm mb-4">Ventas y pedidos</h2>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs uppercase text-gray-400 mb-1.5">WhatsApp para recibir pedidos</label>
+                <input type="text" id="cfg-whatsapp" placeholder="Ej: 1130323702 (como lo digas normalmente)" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm">
+                <p class="text-xs text-gray-500 mt-1">Se va a guardar como: <span id="cfg-whatsapp-preview" style="color:var(--texto)">—</span> — revisá que sea correcto antes de guardar.</p>
+                <p class="text-xs text-gray-500 mt-1">Este mismo número se muestra como teléfono en la página de Contacto.</p>
+              </div>
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Envío gratis a partir de</label><input type="number" id="cfg-envio-gratis" placeholder="50000" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Alias / CBU para transferencias</label><input type="text" id="cfg-alias-cbu" placeholder="Ej: moda.urbana.mp" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+              <div class="bg-gray-800/40 border border-gray-700 rounded-xl p-4">
+                <label class="flex items-center gap-2.5 text-sm cursor-pointer">
+                  <input type="checkbox" id="cfg-notificar-pedidos" class="w-4 h-4">
+                  <span>
+                    <span class="block font-medium">Avisarme por mail cuando entra un pedido nuevo</span>
+                    <span class="block text-xs text-gray-500 mt-0.5">Te llega un mail automático al email de contacto de abajo, apenas se confirma la compra.</span>
+                  </span>
+                </label>
+              </div>
             </div>
-            <div id="mapa-admin" style="height:280px" class="rounded-lg overflow-hidden border border-gray-700"></div>
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h2 class="font-semibold text-sm mb-4">Datos de contacto (página "Contacto")</h2>
+            <div class="space-y-4">
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Email</label><input type="email" id="cfg-email-contacto" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Dirección</label><input type="text" id="cfg-direccion-contacto" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+              <div>
+                <label class="block text-xs uppercase text-gray-400 mb-1.5">Ubicación en el mapa</label>
+                <p class="text-xs text-gray-500 mb-2">Buscá tu dirección, usá tu ubicación actual, o tocá directo en el mapa para marcar dónde estás.</p>
+                <div class="relative mb-2">
+                  <input type="text" id="mapa-buscador" placeholder="Buscar dirección..." class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm">
+                  <div id="mapa-buscador-resultados" style="display:none" class="absolute left-0 right-0 top-full mt-1 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden z-10 max-h-48 overflow-y-auto"></div>
+                </div>
+                <div class="flex gap-4 mb-2">
+                  <button type="button" id="btn-mi-ubicacion" class="text-xs flex items-center gap-1.5" style="color:var(--texto)">
+                    <i data-lucide="locate-fixed" style="width:14px;height:14px"></i> Usar mi ubicación actual
+                  </button>
+                  <button type="button" id="btn-quitar-ubicacion" class="text-xs flex items-center gap-1.5 text-red-400">
+                    <i data-lucide="trash-2" style="width:14px;height:14px"></i> Quitar ubicación
+                  </button>
+                </div>
+                <div id="mapa-admin" style="height:280px" class="rounded-lg overflow-hidden border border-gray-700"></div>
+              </div>
+            </div>
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
