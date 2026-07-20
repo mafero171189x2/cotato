@@ -88,17 +88,20 @@ export async function handleAuth(request, env, url) {
   }
 
   // ---- RECUPERAR CONTRASEÑA: pedir link -------------------------------------
-  // Nota: acá NO se manda el email (eso requeriría un servicio de mail, ej.
-  // Resend/Mailgun vía fetch desde el Worker). Se genera el token y se devuelve
-  // el link — conectalo a tu proveedor de mail en producción (ver README).
+  // Busca primero entre clientes y, si no está ahí, entre admins — así el
+  // dueño de la tienda no se queda afuera si se olvida su propia contraseña.
   if (path === "/api/auth/solicitar-reset" && method === "POST") {
     const { email } = await request.json();
-    const row = await env.DB.prepare("SELECT id, email FROM clientes WHERE email = ?").bind((email || "").toLowerCase()).first();
+    const emailNorm = (email || "").toLowerCase();
+    const rowCliente = await env.DB.prepare("SELECT id, email FROM clientes WHERE email = ?").bind(emailNorm).first();
+    const rowAdmin = rowCliente ? null : await env.DB.prepare("SELECT id, email FROM admins WHERE email = ?").bind(emailNorm).first();
+    const tabla = rowCliente ? "clientes" : rowAdmin ? "admins" : null;
+    const row = rowCliente || rowAdmin;
     // Responde igual exista o no la cuenta (no revelar si un email está registrado).
-    if (row) {
+    if (row && tabla) {
       const token = uuid();
       const exp = new Date(Date.now() + 1000 * 60 * 60).toISOString(); // 1 hora
-      await env.DB.prepare("UPDATE clientes SET reset_token = ?, reset_token_exp = ? WHERE id = ?").bind(token, exp, row.id).run();
+      await env.DB.prepare(`UPDATE ${tabla} SET reset_token = ?, reset_token_exp = ? WHERE id = ?`).bind(token, exp, row.id).run();
       const origenFrontend = env.CORS_ORIGIN && env.CORS_ORIGIN !== "*" ? env.CORS_ORIGIN : url.origin;
       const link = `${origenFrontend}/#/reset?token=${token}`;
       await enviarEmailReset(env, row.email, link);
@@ -109,12 +112,17 @@ export async function handleAuth(request, env, url) {
   if (path === "/api/auth/confirmar-reset" && method === "POST") {
     const { token, passwordNueva } = await request.json();
     if (!token || !passwordNueva || passwordNueva.length < 6) return jsonError("Datos inválidos", 400);
-    const row = await env.DB.prepare("SELECT * FROM clientes WHERE reset_token = ?").bind(token).first();
+    let row = await env.DB.prepare("SELECT * FROM clientes WHERE reset_token = ?").bind(token).first();
+    let tabla = "clientes";
+    if (!row) {
+      row = await env.DB.prepare("SELECT * FROM admins WHERE reset_token = ?").bind(token).first();
+      tabla = "admins";
+    }
     if (!row || !row.reset_token_exp || new Date(row.reset_token_exp) < new Date()) {
       return jsonError("El link de recuperación es inválido o venció", 400);
     }
     const nuevoHash = await hashPassword(passwordNueva);
-    await env.DB.prepare("UPDATE clientes SET password_hash = ?, reset_token = NULL, reset_token_exp = NULL WHERE id = ?").bind(nuevoHash, row.id).run();
+    await env.DB.prepare(`UPDATE ${tabla} SET password_hash = ?, reset_token = NULL, reset_token_exp = NULL WHERE id = ?`).bind(nuevoHash, row.id).run();
     return json({ ok: true });
   }
 
