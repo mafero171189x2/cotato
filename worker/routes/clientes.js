@@ -1,8 +1,19 @@
-import { requiereCliente, jsonError, json } from "../auth/middleware.js";
+import { requiereCliente, requiereAdmin, jsonError, json } from "../auth/middleware.js";
 import { mapCliente } from "../database/mappers.js";
 
 export async function handleClientes(request, env, url) {
   const method = request.method;
+  const partes = url.pathname.split("/").filter(Boolean); // ["api","clientes", ":id"?]
+  const seg2 = partes[2]; // "yo" | "carrito" | ":id" | undefined
+
+  // ---- LISTAR (admin) -------------------------------------------------
+  if (method === "GET" && !seg2) {
+    await requiereAdmin(request, env);
+    const { results } = await env.DB.prepare(
+      "SELECT id, email, nombre, telefono, provincia, fecha_registro FROM clientes ORDER BY fecha_registro DESC"
+    ).all();
+    return json({ clientes: results });
+  }
 
   if (method === "GET" && url.pathname === "/api/clientes/yo") {
     const sesion = await requiereCliente(request, env);
@@ -34,6 +45,28 @@ export async function handleClientes(request, env, url) {
       `INSERT INTO carritos (cliente_id, items, fecha) VALUES (?, ?, datetime('now'))
        ON CONFLICT(cliente_id) DO UPDATE SET items = excluded.items, fecha = excluded.fecha`
     ).bind(sesion.uid, JSON.stringify(items || [])).run();
+    return json({ ok: true });
+  }
+
+  // ---- ELIMINAR MI PROPIA CUENTA (cliente logueado) ---------------------
+  if (method === "DELETE" && url.pathname === "/api/clientes/yo") {
+    const sesion = await requiereCliente(request, env);
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM carritos WHERE cliente_id = ?").bind(sesion.uid),
+      env.DB.prepare("DELETE FROM clientes WHERE id = ?").bind(sesion.uid)
+    ]);
+    return json({ ok: true });
+  }
+
+  // ---- ELIMINAR CUENTA (admin) -----------------------------------------
+  if (method === "DELETE" && seg2 && seg2 !== "yo" && seg2 !== "carrito") {
+    await requiereAdmin(request, env);
+    const cliente = await env.DB.prepare("SELECT id FROM clientes WHERE id = ?").bind(seg2).first();
+    if (!cliente) return jsonError("Cliente no encontrado", 404);
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM carritos WHERE cliente_id = ?").bind(seg2),
+      env.DB.prepare("DELETE FROM clientes WHERE id = ?").bind(seg2)
+    ]);
     return json({ ok: true });
   }
 
