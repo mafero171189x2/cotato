@@ -79,7 +79,9 @@ CREATE TABLE IF NOT EXISTS admins (
   id            TEXT PRIMARY KEY,
   email         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+  creado        TEXT NOT NULL DEFAULT (datetime('now')),
+  reset_token     TEXT,
+  reset_token_exp TEXT
 );
 
 -- ---------------------------------------------------------------------------
