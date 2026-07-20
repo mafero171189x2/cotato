@@ -2878,6 +2878,7 @@ function renderDatosCliente() {
 }
 
 function abrirEdicionDatosCliente() {
+  poblarSelectsProvincia();
   const c = clienteActual || {};
   document.getElementById("cd-nombre").value = c.nombre || "";
   document.getElementById("cd-telefono").value = c.telefono || "";
@@ -2904,17 +2905,19 @@ function renderSeguimientoPedido(estado) {
   ];
   let idxActual = pasos.findIndex((s) => s.key === estado);
   if (idxActual === -1) idxActual = pasos.length - 1; // estados viejos/desconocidos -> mostrar completo
+  const pct = (idxActual / (pasos.length - 1)) * 100;
   return `
-    <div class="mt-3">
-      <div class="flex items-center">
+    <div class="mt-3 relative" style="padding:0 14px">
+      <div class="absolute h-0.5 bg-[#3f3f46]" style="top:14px;left:14px;right:14px"></div>
+      <div class="absolute h-0.5" style="top:14px;left:14px;width:calc((100% - 28px) * ${pct / 100});background:var(--btn-fondo)"></div>
+      <div class="relative flex justify-between">
         ${pasos.map((s, i) => `
-          ${i > 0 ? `<div class="flex-1 h-0.5" style="background:${i <= idxActual ? "var(--btn-fondo)" : "#3f3f46"}"></div>` : ""}
-          <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style="background:${i <= idxActual ? "var(--btn-fondo)" : "#27272a"}">
-            <i data-lucide="${i < idxActual ? "check" : s.icono}" style="width:14px;height:14px;color:${i <= idxActual ? "var(--btn-texto)" : "#71717a"}"></i>
+          <div class="flex flex-col items-center" style="width:44px">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style="background:${i <= idxActual ? "var(--btn-fondo)" : "#27272a"}">
+              <i data-lucide="${i < idxActual ? "check" : s.icono}" style="width:14px;height:14px;color:${i <= idxActual ? "var(--btn-texto)" : "#71717a"}"></i>
+            </div>
+            <span class="text-[10px] mt-1 text-center leading-tight" style="color:${i <= idxActual ? "var(--texto)" : "#6b7280"}">${s.label}</span>
           </div>`).join("")}
-      </div>
-      <div class="flex mt-1">
-        ${pasos.map((s, i) => `<span class="text-[10px] flex-1 ${i === 0 ? "text-left" : i === pasos.length - 1 ? "text-right" : "text-center"}" style="color:${i <= idxActual ? "var(--texto)" : "#6b7280"}">${s.label}</span>`).join("")}
       </div>
     </div>
   `;
@@ -4143,10 +4146,22 @@ function verDetallePedido(id) {
   });
   cont.querySelector("#btn-notificar-pedido").addEventListener("click", async () => {
     const btnNotif = cont.querySelector("#btn-notificar-pedido");
+    const estadoElegido = cont.querySelector("#select-estado-pedido").value;
     btnNotif.disabled = true; btnNotif.textContent = "Enviando...";
     try {
+      // Si el estado elegido en el selector todavía no se guardó, lo guardamos
+      // primero (junto con el envío actual) para que el mail salga siempre con
+      // el estado correcto, sin tener que tocar "Guardar cambios" antes.
+      if (estadoElegido !== p.estado) {
+        const envio = Math.max(0, Number(cont.querySelector("#input-envio-pedido")?.value) || 0);
+        await api(`/api/pedidos/${id}`, { method: "PUT", body: { estado: estadoElegido, envio } });
+        p.estado = estadoElegido;
+      }
       await api(`/api/pedidos/${id}/notificar`, { method: "POST" });
       mostrarToast("Aviso enviado al cliente", "success");
+      await cargarPedidosAdmin();
+      await cargarProductosAdmin();
+      await cargarResumen();
     } catch (err) {
       mostrarToast(err.message || "No se pudo enviar el aviso", "error");
     } finally {
