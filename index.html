@@ -1142,6 +1142,44 @@ img { display: block; max-width: 100%; }
   </div>
 </section>
 
+<section data-view="producto" class="vista" id="seccion-producto">
+  <div class="max-w-3xl mx-auto px-4 py-6">
+    <a href="#/" onclick="volverDeProducto(event)" class="inline-flex items-center gap-1.5 text-sm text-gray-400 mb-4 hover:text-gray-200"><i data-lucide="arrow-left" style="width:16px;height:16px"></i>Volver</a>
+    <div class="bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden relative">
+      <a href="#/" onclick="volverDeProducto(event)" class="absolute top-3 right-3 z-10 p-2 rounded-full bg-gray-900/70" aria-label="Cerrar"><i data-lucide="x" style="width:20px;height:20px;color:#fff"></i></a>
+      <div id="modal-gallery" class="relative bg-gray-950">
+        <div id="modal-img-wrap" class="h-80 sm:h-[26rem] flex items-center justify-center overflow-hidden">
+          <img id="modal-image" class="max-h-full max-w-full object-contain" loading="lazy" onerror="this.onerror=null;this.src='img/placeholder.jpg'">
+        </div>
+        <div id="modal-zoom-hint" class="absolute top-3 left-3 text-[10px] bg-gray-900/70 px-2 py-1 rounded-full text-gray-300">Pellizcá o doble toque para zoom</div>
+        <button id="modal-prev" class="absolute left-2 top-1/2 -translate-y-1/2 p-2" aria-label="Anterior" type="button"><i data-lucide="chevron-left" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
+        <button id="modal-next" class="absolute right-2 top-1/2 -translate-y-1/2 p-2" aria-label="Siguiente" type="button"><i data-lucide="chevron-right" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
+        <div id="modal-counter" class="absolute bottom-3 right-3 text-xs font-semibold" style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)"></div>
+      </div>
+      <div class="p-5">
+        <div id="modal-marca" class="text-xs uppercase tracking-wide text-gray-500 mb-1"></div>
+        <h3 id="modal-title" class="font-bold text-xl mb-2"></h3>
+        <div class="flex items-center gap-3 mb-3">
+          <span id="modal-price" class="text-2xl precio-destacado"></span>
+          <span id="modal-price-old" class="text-sm text-gray-500 line-through" style="display:none"></span>
+        </div>
+        <p id="modal-desc" class="text-sm text-gray-400 mb-4"></p>
+        <div id="modal-stock" class="text-sm mb-4"></div>
+        <div class="flex gap-3">
+          <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold border text-sm sm:text-base" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)">Agregar al carrito</button>
+          <button id="modal-comprar-ahora" type="button" class="flex-1 py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Comprar</button>
+          <button id="modal-fav" type="button" class="p-3 rounded-lg border border-gray-700"><i data-lucide="heart" style="width:18px;height:18px"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="relacionados-wrap" class="mt-14 pt-8 border-t border-gray-800" style="display:none">
+      <h2 class="font-bold text-lg mb-4">También te puede interesar</h2>
+      <div id="relacionados-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <footer id="site-footer" class="border-t border-gray-800 py-8 mt-4">
@@ -1234,43 +1272,6 @@ img { display: block; max-width: 100%; }
 </aside>
 
 <!-- Product detail modal -->
-<section data-view="producto" class="vista" id="seccion-producto">
-  <div class="max-w-3xl mx-auto px-4 py-6">
-    <a href="#/" onclick="volverDeProducto(event)" class="inline-flex items-center gap-1.5 text-sm text-gray-400 mb-4 hover:text-gray-200"><i data-lucide="arrow-left" style="width:16px;height:16px"></i>Volver</a>
-    <div class="bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden relative">
-      <a href="#/" onclick="volverDeProducto(event)" class="absolute top-3 right-3 z-10 p-2 rounded-full bg-gray-900/70" aria-label="Cerrar"><i data-lucide="x" style="width:20px;height:20px;color:#fff"></i></a>
-      <div id="modal-gallery" class="relative bg-gray-950">
-        <div id="modal-img-wrap" class="h-80 sm:h-[26rem] flex items-center justify-center overflow-hidden">
-          <img id="modal-image" class="max-h-full max-w-full object-contain" loading="lazy" onerror="this.onerror=null;this.src='img/placeholder.jpg'">
-        </div>
-        <div id="modal-zoom-hint" class="absolute top-3 left-3 text-[10px] bg-gray-900/70 px-2 py-1 rounded-full text-gray-300">Pellizcá o doble toque para zoom</div>
-        <button id="modal-prev" class="absolute left-2 top-1/2 -translate-y-1/2 p-2" aria-label="Anterior" type="button"><i data-lucide="chevron-left" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
-        <button id="modal-next" class="absolute right-2 top-1/2 -translate-y-1/2 p-2" aria-label="Siguiente" type="button"><i data-lucide="chevron-right" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
-        <div id="modal-counter" class="absolute bottom-3 right-3 text-xs font-semibold" style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)"></div>
-      </div>
-      <div class="p-5">
-        <div id="modal-marca" class="text-xs uppercase tracking-wide text-gray-500 mb-1"></div>
-        <h3 id="modal-title" class="font-bold text-xl mb-2"></h3>
-        <div class="flex items-center gap-3 mb-3">
-          <span id="modal-price" class="text-2xl precio-destacado"></span>
-          <span id="modal-price-old" class="text-sm text-gray-500 line-through" style="display:none"></span>
-        </div>
-        <p id="modal-desc" class="text-sm text-gray-400 mb-4"></p>
-        <div id="modal-stock" class="text-sm mb-4"></div>
-        <div class="flex gap-3">
-          <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold border text-sm sm:text-base" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)">Agregar al carrito</button>
-          <button id="modal-comprar-ahora" type="button" class="flex-1 py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Comprar</button>
-          <button id="modal-fav" type="button" class="p-3 rounded-lg border border-gray-700"><i data-lucide="heart" style="width:18px;height:18px"></i></button>
-        </div>
-      </div>
-    </div>
-
-    <div id="relacionados-wrap" class="mt-14 pt-8 border-t border-gray-800" style="display:none">
-      <h2 class="font-bold text-lg mb-4">También te puede interesar</h2>
-      <div id="relacionados-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
-    </div>
-  </div>
-</section>
 
 <!-- Modal producto (admin) -->
 <div id="modal-producto" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/70 p-4">
