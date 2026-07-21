@@ -755,11 +755,11 @@ img { display: block; max-width: 100%; }
     <form id="form-reset-password" class="space-y-3">
       <div><label class="block text-xs uppercase text-gray-400 mb-1">Contraseña nueva</label>
         <div class="relative">
-          <input type="password" id="reset-password" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
+          <input type="password" id="reset-password" required minlength="8" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
           <button type="button" data-toggle-pass="reset-password" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
         </div>
       </div>
-      <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña</label><input type="password" id="reset-password-repetir" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm"></div>
+      <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña</label><input type="password" id="reset-password-repetir" required minlength="8" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm"></div>
       <div id="reset-error" class="text-red-400 text-xs" style="display:none"></div>
       <button type="submit" id="btn-reset-password" class="w-full py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Guardar contraseña</button>
     </form>
@@ -808,13 +808,13 @@ img { display: block; max-width: 100%; }
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Email *</label><input type="email" id="cr-email" required autocomplete="username" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm"></div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Contraseña *</label>
           <div class="relative">
-            <input type="password" id="cr-password" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
+            <input type="password" id="cr-password" required minlength="8" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
             <button type="button" data-toggle-pass="cr-password" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
           </div>
         </div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña *</label>
           <div class="relative">
-            <input type="password" id="cr-password-repetir" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
+            <input type="password" id="cr-password-repetir" required minlength="8" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
             <button type="button" data-toggle-pass="cr-password-repetir" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
           </div>
         </div>
@@ -858,16 +858,23 @@ img { display: block; max-width: 100%; }
         </button>
         <form id="form-cambiar-password" class="space-y-3 mt-4" style="display:none">
           <div>
+            <label class="block text-xs uppercase text-gray-400 mb-1">Contraseña actual</label>
+            <div class="relative">
+              <input type="password" id="np-actual" required autocomplete="current-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+              <button type="button" data-toggle-pass="np-actual" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
+            </div>
+          </div>
+          <div>
             <label class="block text-xs uppercase text-gray-400 mb-1">Contraseña nueva</label>
             <div class="relative">
-              <input type="password" id="np-nueva" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+              <input type="password" id="np-nueva" required minlength="8" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
               <button type="button" data-toggle-pass="np-nueva" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
             </div>
           </div>
           <div>
             <label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña nueva</label>
             <div class="relative">
-              <input type="password" id="np-repetir" required minlength="6" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+              <input type="password" id="np-repetir" required minlength="8" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
               <button type="button" data-toggle-pass="np-repetir" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
             </div>
           </div>
@@ -1347,13 +1354,13 @@ img { display: block; max-width: 100%; }
       <input type="hidden" id="clave-admin-id">
       <div><label class="block text-xs uppercase text-gray-400 mb-1">Contraseña nueva *</label>
         <div class="relative">
-          <input type="password" id="clave-admin-nueva" required minlength="6" placeholder="Mínimo 6 caracteres" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+          <input type="password" id="clave-admin-nueva" required minlength="8" placeholder="Mínimo 8 caracteres" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
           <button type="button" data-toggle-pass="clave-admin-nueva" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
         </div>
       </div>
       <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña nueva *</label>
         <div class="relative">
-          <input type="password" id="clave-admin-repetir" required minlength="6" placeholder="Repetí la misma contraseña" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+          <input type="password" id="clave-admin-repetir" required minlength="8" placeholder="Repetí la misma contraseña" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
           <button type="button" data-toggle-pass="clave-admin-repetir" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
         </div>
       </div>
@@ -1374,13 +1381,13 @@ img { display: block; max-width: 100%; }
       <div><label class="block text-xs uppercase text-gray-400 mb-1">Email *</label><input type="email" id="admin-email" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
       <div><label class="block text-xs uppercase text-gray-400 mb-1">Contraseña *</label>
         <div class="relative">
-          <input type="password" id="admin-password" required minlength="6" placeholder="Mínimo 6 caracteres" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+          <input type="password" id="admin-password" required minlength="8" placeholder="Mínimo 8 caracteres" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
           <button type="button" data-toggle-pass="admin-password" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
         </div>
       </div>
       <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña *</label>
         <div class="relative">
-          <input type="password" id="admin-password-repetir" required minlength="6" placeholder="Repetí la misma contraseña" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
+          <input type="password" id="admin-password-repetir" required minlength="8" placeholder="Repetí la misma contraseña" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-sm">
           <button type="button" data-toggle-pass="admin-password-repetir" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
         </div>
       </div>
@@ -1462,6 +1469,14 @@ async function api(path, { method = "GET", body, timeoutMs = 9000 } = {}) {
   clearTimeout(timer);
   let data = null;
   try { data = await res.json(); } catch (_) { /* respuesta sin body, ok */ }
+  // Ahora el Worker puede REVOCAR una sesión (cuenta borrada, contraseña
+  // cambiada, "cerrar sesión en todos lados"). Si contesta 401 fuera del
+  // login, el token que tenemos guardado ya no vale: lo tiramos.
+  if (res.status === 401 && !path.startsWith("/api/auth/")) {
+    localStorage.removeItem(TOKEN_KEY);
+    auth.currentUser = null;
+    notificarAuth();
+  }
   if (!res.ok) throw new Error(data?.error || `Error ${res.status}`);
   return data;
 }
@@ -1524,8 +1539,11 @@ async function createUserWithEmailAndPassword(_auth, email, password, datosExtra
 async function sendPasswordResetEmail(_auth, email) {
   await api("/api/auth/solicitar-reset", { method: "POST", body: { email } });
 }
-async function updatePassword(_user, nueva) {
-  await api("/api/auth/cambiar-password", { method: "POST", body: { passwordNueva: nueva } });
+async function updatePassword(_user, nueva, actual) {
+  // El Worker ahora exige la contraseña actual y devuelve un token nuevo
+  // (porque al cambiarla se invalidan todas las sesiones anteriores).
+  const r = await api("/api/auth/cambiar-password", { method: "POST", body: { passwordActual: actual, passwordNueva: nueva } });
+  if (r && r.token) localStorage.setItem(TOKEN_KEY, r.token);
 }
 async function signOut(_auth) {
   try { await api("/api/auth/logout", { method: "POST" }); } catch (_) {}
@@ -3201,6 +3219,7 @@ function initCuentaListenersOnce() {
     const btn = document.getElementById("btn-cambiar-password");
     errorBox.style.display = "none";
     okBox.style.display = "none";
+    const actual = document.getElementById("np-actual").value;
     const nueva = document.getElementById("np-nueva").value;
     const repetir = document.getElementById("np-repetir").value;
     if (nueva !== repetir) {
@@ -3210,12 +3229,12 @@ function initCuentaListenersOnce() {
     }
     btn.disabled = true; btn.textContent = "Guardando...";
     try {
-      await updatePassword(auth.currentUser, nueva);
+      await updatePassword(auth.currentUser, nueva, actual);
       okBox.style.display = "block";
       document.getElementById("form-cambiar-password").reset();
     } catch (err) {
       console.error(err);
-      errorBox.textContent = "No se pudo cambiar la contraseña. Intentá de nuevo.";
+      errorBox.textContent = err.message || "No se pudo cambiar la contraseña. Intentá de nuevo.";
       errorBox.style.display = "block";
     } finally {
       btn.disabled = false; btn.textContent = "Cambiar contraseña";
@@ -3588,7 +3607,10 @@ function initAdministradoresListenersOnce() {
       return;
     }
     try {
-      await api(`/api/admins/${id}`, { method: "PUT", body: { password } });
+      const r = await api(`/api/admins/${id}`, { method: "PUT", body: { password } });
+      // Si el admin se cambió su propia clave, el Worker devuelve token nuevo:
+      // sin esto se auto-expulsaría del panel al invalidarse la sesión vieja.
+      if (r && r.token) localStorage.setItem(TOKEN_KEY, r.token);
       mostrarToast("Contraseña actualizada", "success");
       cerrarModal("modal-clave-admin");
     } catch (err) { mostrarToast(err.message || "No se pudo actualizar", "error"); }
