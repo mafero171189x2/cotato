@@ -2196,13 +2196,13 @@ function renderCategoriasNav() {
 }
 
 /** Pinta como activa la categoría de filtroActivo. Una sola fuente de verdad. */
-// Mantiene la URL en sincro con el filtro/búsqueda actual. Para la categoría
-// usamos pushState (entrada real en el historial) porque algunos navegadores
-// móviles no reconocen bien un replaceState como "paso al que volver" con el
-// botón atrás físico — para la búsqueda (que cambia con cada letra) seguimos
-// usando replaceState para no llenar el historial de entradas de más.
+// Última categoría/búsqueda elegida. Restaurarla al volver a la tienda es más
+// confiable que depender del botón "atrás" del navegador, que con URLs de tipo
+// #/ no siempre reconoce el cambio de filtro como un paso al que volver.
+let _ultimoFiltroHome = { categoria: null, q: "" };
 function sincronizarUrlFiltroHome(modo = "replace") {
   if (parseHash().vista !== "home") return;
+  _ultimoFiltroHome = { categoria: filtroActivo.categoria, q: filtroActivo.q };
   const params = new URLSearchParams();
   if (filtroActivo.categoria) params.set("cat", filtroActivo.categoria);
   if (filtroActivo.q) params.set("q", filtroActivo.q);
@@ -2243,8 +2243,19 @@ let _productosCacheTs = 0;
 const filtroActivo = { categoria: null, q: "", orden: "alfabetico" };
 
 async function initHome(params) {
-  filtroActivo.categoria = params.get("cat") || null;
-  filtroActivo.q = params.get("q") || "";
+  // Si la URL no trae filtro (típico al volver desde un producto con el botón
+  // atrás), restauramos el último que había elegido el usuario en vez de
+  // resetear a "Todos".
+  const urlSinFiltro = !params.get("cat") && !params.get("q");
+  if (urlSinFiltro && (_ultimoFiltroHome.categoria || _ultimoFiltroHome.q)) {
+    filtroActivo.categoria = _ultimoFiltroHome.categoria;
+    filtroActivo.q = _ultimoFiltroHome.q;
+    sincronizarUrlFiltroHome();
+  } else {
+    filtroActivo.categoria = params.get("cat") || null;
+    filtroActivo.q = params.get("q") || "";
+    _ultimoFiltroHome = { categoria: filtroActivo.categoria, q: filtroActivo.q };
+  }
   document.getElementById("search-input").value = filtroActivo.q;
 
   marcarCategoriaActiva();
