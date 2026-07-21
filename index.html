@@ -600,7 +600,7 @@ img { display: block; max-width: 100%; }
         <span id="fav-count" class="absolute -top-1 -right-1 bg-[#ef4444] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
       </a>
       <button id="cart-btn" class="relative p-2" aria-label="Abrir carrito" type="button">
-        <i data-lucide="shopping-bag" style="width:24px;height:24px;color:var(--texto)"></i>
+        <i data-lucide="shopping-cart" style="width:24px;height:24px;color:var(--texto)"></i>
         <span id="cart-count" class="absolute -top-1 -right-1 bg-[#00ffd5] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
       </button>
       <button id="btn-tema" class="p-2" aria-label="Cambiar tema" type="button" title="Cambiar tema">
@@ -1255,7 +1255,7 @@ img { display: block; max-width: 100%; }
       <p id="modal-desc" class="text-sm text-gray-400 mb-4"></p>
       <div id="modal-stock" class="text-sm mb-4"></div>
       <div class="flex gap-3">
-        <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 border" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)"><i data-lucide="shopping-bag" style="width:17px;height:17px"></i>Agregar</button>
+        <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 border text-sm sm:text-base" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)"><i data-lucide="shopping-cart" style="width:17px;height:17px"></i>Agregar al carrito</button>
         <button id="modal-comprar-ahora" type="button" class="flex-1 py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Comprar</button>
         <button id="modal-fav" type="button" class="p-3 rounded-lg border border-gray-700"><i data-lucide="heart" style="width:18px;height:18px"></i></button>
       </div>
@@ -1892,8 +1892,8 @@ function productCardHTML(p) {
       </div>
       <span class="flex-1"></span>
       <div class="flex gap-2 mt-3">
-        <button type="button" class="add-cart flex-1 py-2 rounded-lg border text-sm font-medium transition-colors" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>${sinStock ? "Sin stock" : "Agregar"}</button>
-        <button type="button" class="comprar-ahora flex-1 py-2 rounded-lg text-sm font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>Comprar</button>
+        <button type="button" class="add-cart flex-1 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors leading-tight" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>${sinStock ? "Sin stock" : "Agregar al carrito"}</button>
+        <button type="button" class="comprar-ahora flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>Comprar</button>
       </div>
     </div>
   </article>`;
