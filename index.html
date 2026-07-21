@@ -2196,18 +2196,21 @@ function renderCategoriasNav() {
 }
 
 /** Pinta como activa la categoría de filtroActivo. Una sola fuente de verdad. */
-// Mantiene la URL en sincro con el filtro/búsqueda actual, sin agregar una
-// entrada nueva al historial por cada tecla o cada click (replaceState, no
-// pushState) — así "volver" desde un producto puede recuperar el filtro que
-// tenías puesto, en vez de resetear siempre a "Todos".
-function sincronizarUrlFiltroHome() {
+// Mantiene la URL en sincro con el filtro/búsqueda actual. Para la categoría
+// usamos pushState (entrada real en el historial) porque algunos navegadores
+// móviles no reconocen bien un replaceState como "paso al que volver" con el
+// botón atrás físico — para la búsqueda (que cambia con cada letra) seguimos
+// usando replaceState para no llenar el historial de entradas de más.
+function sincronizarUrlFiltroHome(modo = "replace") {
   if (parseHash().vista !== "home") return;
   const params = new URLSearchParams();
   if (filtroActivo.categoria) params.set("cat", filtroActivo.categoria);
   if (filtroActivo.q) params.set("q", filtroActivo.q);
   const qs = params.toString();
   const nuevoHash = "#/" + (qs ? `?${qs}` : "");
-  if (location.hash !== nuevoHash) history.replaceState(null, "", nuevoHash);
+  if (location.hash === nuevoHash) return;
+  if (modo === "push") history.pushState(null, "", nuevoHash);
+  else history.replaceState(null, "", nuevoHash);
 }
 function marcarCategoriaActiva() {
   document.querySelectorAll(".cat-btn").forEach((b) => {
@@ -2227,7 +2230,7 @@ function bindCategoriaBotones() {
     filtroActivo.categoria = btn.dataset.cat === "all" ? null : btn.dataset.cat;
     marcarCategoriaActiva();
     btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    sincronizarUrlFiltroHome();
+    sincronizarUrlFiltroHome("push");
     aplicarFiltroHome();
   });
 }
