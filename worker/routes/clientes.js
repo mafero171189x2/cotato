@@ -1,12 +1,14 @@
-import { requiereCliente, requiereAdmin, jsonError, json } from "../auth/middleware.js";
+import { requiereCliente, requiereAdmin, jsonError, json, leerJson, texto } from "../auth/middleware.js";
 import { mapCliente } from "../database/mappers.js";
+
+const MAX_ITEMS_CARRITO = 100;
 
 export async function handleClientes(request, env, url) {
   const method = request.method;
   const partes = url.pathname.split("/").filter(Boolean); // ["api","clientes", ":id"?]
-  const seg2 = partes[2]; // "yo" | "carrito" | ":id" | undefined
+  const seg2 = partes[2];
 
-  // ---- LISTAR (admin) -------------------------------------------------
+  // ---- LISTAR (admin) ------------------------------------------------------
   if (method === "GET" && !seg2) {
     await requiereAdmin(request, env);
     const { results } = await env.DB.prepare(
@@ -24,34 +26,46 @@ export async function handleClientes(request, env, url) {
 
   if (method === "PUT" && url.pathname === "/api/clientes/yo") {
     const sesion = await requiereCliente(request, env);
-    const b = await request.json();
+    const b = await leerJson(request, 8192);
     await env.DB.prepare(
       `UPDATE clientes SET nombre=?, telefono=?, direccion=?, entre_calles=?, ciudad=?, provincia=?, codigo_postal=? WHERE id=?`
-    ).bind(b.nombre || "", b.telefono || "", b.direccion || "", b.entreCalles || "", b.ciudad || "", b.provincia || "", b.codigoPostal || "", sesion.uid).run();
+    ).bind(
+      texto(b.nombre, 80), texto(b.telefono, 30), texto(b.direccion, 160),
+      texto(b.entreCalles, 120), texto(b.ciudad, 80), texto(b.provincia, 60), texto(b.codigoPostal, 12),
+      sesion.uid
+    ).run();
     const row = await env.DB.prepare("SELECT * FROM clientes WHERE id = ?").bind(sesion.uid).first();
     return json({ cliente: mapCliente(row) });
   }
 
-  // ---- CARRITO SINCRONIZADO -------------------------------------------
+  // ---- CARRITO SINCRONIZADO ------------------------------------------------
   if (method === "GET" && url.pathname === "/api/clientes/carrito") {
     const sesion = await requiereCliente(request, env);
     const row = await env.DB.prepare("SELECT items FROM carritos WHERE cliente_id = ?").bind(sesion.uid).first();
-    return json({ items: row ? JSON.parse(row.items) : [] });
+    let items = [];
+    try { items = row ? JSON.parse(row.items) : []; } catch (_) { items = []; }
+    return json({ items });
   }
+
   if (method === "PUT" && url.pathname === "/api/clientes/carrito") {
     const sesion = await requiereCliente(request, env);
-    const { items } = await request.json();
+    const { items } = await leerJson(request, 32 * 1024);
+    if (!Array.isArray(items)) return jsonError("Carrito inválido", 400);
+    if (items.length > MAX_ITEMS_CARRITO) return jsonError("El carrito tiene demasiados productos", 400);
+    // Se guarda solo lo necesario: sin esto se podía almacenar cualquier cosa
+    // de cualquier tamaño en la base con solo estar logueado.
+    const limpios = items.map((i) => ({
+      productoId: texto(i && i.productoId, 60),
+      cantidad: Math.max(1, Math.min(999, Number(i && i.cantidad) || 1))
+    })).filter((i) => i.productoId);
     await env.DB.prepare(
       `INSERT INTO carritos (cliente_id, items, fecha) VALUES (?, ?, datetime('now'))
        ON CONFLICT(cliente_id) DO UPDATE SET items = excluded.items, fecha = excluded.fecha`
-    ).bind(sesion.uid, JSON.stringify(items || [])).run();
+    ).bind(sesion.uid, JSON.stringify(limpios)).run();
     return json({ ok: true });
   }
 
-  // ---- ELIMINAR MI PROPIA CUENTA (cliente logueado) ---------------------
-  // Mismo criterio que cuando lo hace un admin: los pedidos ya hechos NO se
-  // borran (quedan con los datos de ese momento guardados aparte), solo se
-  // borra la cuenta y el carrito.
+  // ---- ELIMINAR MI PROPIA CUENTA -------------------------------------------
   if (method === "DELETE" && url.pathname === "/api/clientes/yo") {
     const sesion = await requiereCliente(request, env);
     await env.DB.batch([
@@ -61,11 +75,7 @@ export async function handleClientes(request, env, url) {
     return json({ ok: true });
   }
 
-  // ---- ELIMINAR CUENTA (admin) -----------------------------------------
-  // Los pedidos ya hechos por este cliente NO se borran ni se rompen: el
-  // nombre/teléfono/dirección de cada pedido quedan guardados aparte (una
-  // "foto" de esos datos al momento de comprar), así que el historial de
-  // ventas se conserva intacto aunque la cuenta del cliente ya no exista.
+  // ---- ELIMINAR CUENTA (admin) ---------------------------------------------
   if (method === "DELETE" && seg2 && seg2 !== "yo" && seg2 !== "carrito") {
     await requiereAdmin(request, env);
     const cliente = await env.DB.prepare("SELECT id FROM clientes WHERE id = ?").bind(seg2).first();
