@@ -646,6 +646,7 @@ img { display: block; max-width: 100%; }
     <label for="select-orden-productos" class="text-sm text-gray-400 hidden sm:inline">Ordenar por:</label>
     <select id="select-orden-productos" class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2">
       <option value="alfabetico">Alfabético (A-Z)</option>
+      <option value="alfabetico-desc">Alfabético (Z-A)</option>
       <option value="precio-asc">Precio: menor a mayor</option>
       <option value="precio-desc">Precio: mayor a menor</option>
     </select>
@@ -2195,6 +2196,19 @@ function renderCategoriasNav() {
 }
 
 /** Pinta como activa la categoría de filtroActivo. Una sola fuente de verdad. */
+// Mantiene la URL en sincro con el filtro/búsqueda actual, sin agregar una
+// entrada nueva al historial por cada tecla o cada click (replaceState, no
+// pushState) — así "volver" desde un producto puede recuperar el filtro que
+// tenías puesto, en vez de resetear siempre a "Todos".
+function sincronizarUrlFiltroHome() {
+  if (parseHash().vista !== "home") return;
+  const params = new URLSearchParams();
+  if (filtroActivo.categoria) params.set("cat", filtroActivo.categoria);
+  if (filtroActivo.q) params.set("q", filtroActivo.q);
+  const qs = params.toString();
+  const nuevoHash = "#/" + (qs ? `?${qs}` : "");
+  if (location.hash !== nuevoHash) history.replaceState(null, "", nuevoHash);
+}
 function marcarCategoriaActiva() {
   document.querySelectorAll(".cat-btn").forEach((b) => {
     const suya = (b.dataset.cat === "all" && !filtroActivo.categoria) || b.dataset.cat === filtroActivo.categoria;
@@ -2213,6 +2227,7 @@ function bindCategoriaBotones() {
     filtroActivo.categoria = btn.dataset.cat === "all" ? null : btn.dataset.cat;
     marcarCategoriaActiva();
     btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    sincronizarUrlFiltroHome();
     aplicarFiltroHome();
   });
 }
@@ -2284,6 +2299,7 @@ function aplicarFiltroHome() {
   items = [...items].sort((a, b) => {
     if (filtroActivo.orden === "precio-asc") return (Number(a.precio) || 0) - (Number(b.precio) || 0);
     if (filtroActivo.orden === "precio-desc") return (Number(b.precio) || 0) - (Number(a.precio) || 0);
+    if (filtroActivo.orden === "alfabetico-desc") return (b.nombre || "").localeCompare(a.nombre || "", "es", { sensitivity: "base" });
     return (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" });
   });
   grid.innerHTML = items.map(productCardHTML).join("");
@@ -2325,6 +2341,7 @@ function initVistaProductos() {
 function initSearchListenerOnce() {
   document.getElementById("search-input")?.addEventListener("input", debounce((e) => {
     filtroActivo.q = e.target.value.trim();
+    sincronizarUrlFiltroHome();
     aplicarFiltroHome();
   }, 250));
   document.getElementById("select-orden-productos")?.addEventListener("change", (e) => {
