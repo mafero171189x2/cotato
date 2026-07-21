@@ -1233,35 +1233,42 @@ img { display: block; max-width: 100%; }
 </aside>
 
 <!-- Product detail modal -->
-<div id="product-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4" role="dialog" aria-hidden="true">
-  <div class="bg-gray-900 rounded-2xl max-w-3xl w-full flex flex-col relative border border-gray-700 max-h-[90vh] overflow-y-auto">
-    <button id="modal-close" class="absolute top-3 right-3 z-10 p-2" aria-label="Cerrar" type="button"><i data-lucide="x" style="width:24px;height:24px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
-    <div id="modal-gallery" class="relative bg-gray-950 rounded-t-2xl">
-      <div id="modal-img-wrap" class="h-80 flex items-center justify-center overflow-hidden">
-        <img id="modal-image" class="max-h-full max-w-full object-contain" loading="lazy" onerror="this.onerror=null;this.src='img/placeholder.jpg'">
+<section data-view="producto" class="vista" id="seccion-producto">
+  <div class="max-w-3xl mx-auto px-4 py-6">
+    <a href="#/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 mb-4 hover:text-gray-200"><i data-lucide="arrow-left" style="width:16px;height:16px"></i>Volver</a>
+    <div class="bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden">
+      <div id="modal-gallery" class="relative bg-gray-950">
+        <div id="modal-img-wrap" class="h-80 sm:h-[26rem] flex items-center justify-center overflow-hidden">
+          <img id="modal-image" class="max-h-full max-w-full object-contain" loading="lazy" onerror="this.onerror=null;this.src='img/placeholder.jpg'">
+        </div>
+        <div id="modal-zoom-hint" class="absolute top-3 left-3 text-[10px] bg-gray-900/70 px-2 py-1 rounded-full text-gray-300">Pellizcá o doble toque para zoom</div>
+        <button id="modal-prev" class="absolute left-2 top-1/2 -translate-y-1/2 p-2" aria-label="Anterior" type="button"><i data-lucide="chevron-left" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
+        <button id="modal-next" class="absolute right-2 top-1/2 -translate-y-1/2 p-2" aria-label="Siguiente" type="button"><i data-lucide="chevron-right" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
+        <div id="modal-counter" class="absolute bottom-3 right-3 text-xs font-semibold" style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)"></div>
       </div>
-      <div id="modal-zoom-hint" class="absolute top-3 left-3 text-[10px] bg-gray-900/70 px-2 py-1 rounded-full text-gray-300">Pellizcá o doble toque para zoom</div>
-      <button id="modal-prev" class="absolute left-2 top-1/2 -translate-y-1/2 p-2" aria-label="Anterior" type="button"><i data-lucide="chevron-left" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
-      <button id="modal-next" class="absolute right-2 top-1/2 -translate-y-1/2 p-2" aria-label="Siguiente" type="button"><i data-lucide="chevron-right" style="width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></i></button>
-      <div id="modal-counter" class="absolute bottom-3 right-3 text-xs font-semibold" style="color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)"></div>
+      <div class="p-5">
+        <div id="modal-marca" class="text-xs uppercase tracking-wide text-gray-500 mb-1"></div>
+        <h3 id="modal-title" class="font-bold text-xl mb-2"></h3>
+        <div class="flex items-center gap-3 mb-3">
+          <span id="modal-price" class="text-2xl precio-destacado"></span>
+          <span id="modal-price-old" class="text-sm text-gray-500 line-through" style="display:none"></span>
+        </div>
+        <p id="modal-desc" class="text-sm text-gray-400 mb-4"></p>
+        <div id="modal-stock" class="text-sm mb-4"></div>
+        <div class="flex gap-3">
+          <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 border text-sm sm:text-base" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)"><i data-lucide="shopping-cart" style="width:17px;height:17px"></i>Agregar al carrito</button>
+          <button id="modal-comprar-ahora" type="button" class="flex-1 py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Comprar</button>
+          <button id="modal-fav" type="button" class="p-3 rounded-lg border border-gray-700"><i data-lucide="heart" style="width:18px;height:18px"></i></button>
+        </div>
+      </div>
     </div>
-    <div class="p-5">
-      <div id="modal-marca" class="text-xs uppercase tracking-wide text-gray-500 mb-1"></div>
-      <h3 id="modal-title" class="font-bold text-xl mb-2"></h3>
-      <div class="flex items-center gap-3 mb-3">
-        <span id="modal-price" class="text-2xl precio-destacado"></span>
-        <span id="modal-price-old" class="text-sm text-gray-500 line-through" style="display:none"></span>
-      </div>
-      <p id="modal-desc" class="text-sm text-gray-400 mb-4"></p>
-      <div id="modal-stock" class="text-sm mb-4"></div>
-      <div class="flex gap-3">
-        <button id="modal-add-cart" type="button" class="flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 border text-sm sm:text-base" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)"><i data-lucide="shopping-cart" style="width:17px;height:17px"></i>Agregar al carrito</button>
-        <button id="modal-comprar-ahora" type="button" class="flex-1 py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Comprar</button>
-        <button id="modal-fav" type="button" class="p-3 rounded-lg border border-gray-700"><i data-lucide="heart" style="width:18px;height:18px"></i></button>
-      </div>
+
+    <div id="relacionados-wrap" class="mt-10" style="display:none">
+      <h2 class="font-bold text-lg mb-4">También te puede interesar</h2>
+      <div id="relacionados-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
     </div>
   </div>
-</div>
+</section>
 
 <!-- Modal producto (admin) -->
 <div id="modal-producto" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/70 p-4">
@@ -1900,10 +1907,7 @@ function productCardHTML(p) {
 }
 function bindTarjetas(cont) {
   cont.querySelectorAll(".abrir-producto").forEach((el) => el.addEventListener("click", () => {
-    abrirProductoModal(el.dataset.id).catch((err) => {
-      console.error(err);
-      mostrarToast(`No se pudo abrir el producto: ${err.message || err}`, "error");
-    });
+    location.hash = "#/producto/" + el.dataset.id;
   }));
   cont.querySelectorAll("[data-fav]").forEach((btn) => btn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1975,6 +1979,7 @@ async function router() {
   else if (vista === "favoritos") await initFavoritosVista();
   else if (vista === "cuenta") await initCuentaVista();
   else if (vista === "reset") initResetVista(params);
+  else if (vista === "producto") await initProductoVista(param);
   else if (vista === "contacto") initContactoVista();
   else if (vista === "admin") await initAdminVista();
 }
@@ -2330,11 +2335,19 @@ function initSearchListenerOnce() {
 /* ---------------------------------------------------------------------- */
 let productoModalActual = null;
 let galeriaIndex = 0;
-async function abrirProductoModal(id) {
+async function initProductoVista(id) {
+  if (!id) { location.hash = "#/"; return; }
   // Lectura fresca: el stock del snapshot puede estar viejo si alguien compró
   // recién. Acá sí importa que sea exacto, y solo cuesta 1 lectura por click.
-  const p = await obtenerProductoPorId(id, true);
-  if (!p) return;
+  const p = await obtenerProductoPorId(id, true).catch((err) => {
+    console.error(err);
+    return null;
+  });
+  if (!p) {
+    mostrarToast("No se pudo cargar el producto", "error");
+    location.hash = "#/";
+    return;
+  }
   productoModalActual = p;
   galeriaIndex = 0;
   const imgs = p.imagenes?.length ? p.imagenes : ["img/placeholder.jpg"];
@@ -2353,8 +2366,22 @@ async function abrirProductoModal(id) {
   window._modalGaleria = imgs;
   mostrarImagenModal();
   actualizarFavModal();
-  document.getElementById("product-modal").classList.remove("hidden");
-  document.getElementById("product-modal").classList.add("flex");
+  window.scrollTo({ top: 0 });
+  lucide.createIcons();
+  cargarRelacionados(p);
+}
+async function cargarRelacionados(p) {
+  const wrap = document.getElementById("relacionados-wrap");
+  const grid = document.getElementById("relacionados-grid");
+  wrap.style.display = "none";
+  if (!TODOS_PRODUCTOS.length) { try { await cargarCatalogoPublico(); } catch (e) { /* sigue sin relacionados si falla */ } }
+  const relacionados = TODOS_PRODUCTOS
+    .filter((x) => x.id !== p.id && x.activo && x.categoria === p.categoria)
+    .slice(0, 6);
+  if (!relacionados.length) return;
+  grid.innerHTML = relacionados.map(productCardHTML).join("");
+  bindTarjetas(grid);
+  wrap.style.display = "block";
   lucide.createIcons();
 }
 function mostrarImagenModal() {
@@ -2372,14 +2399,9 @@ function actualizarFavModal() {
   btn.style.color = activo ? "#ef4444" : "";
 }
 function cerrarProductoModal() {
-  document.getElementById("product-modal").classList.add("hidden");
-  document.getElementById("product-modal").classList.remove("flex");
   productoModalActual = null;
 }
 function initModalListenersOnce() {
-  document.getElementById("modal-close").addEventListener("click", cerrarProductoModal);
-  document.getElementById("product-modal").addEventListener("click", (e) => { if (e.target.id === "product-modal") cerrarProductoModal(); });
-
   const irAnterior = () => { const imgs = window._modalGaleria || []; galeriaIndex = (galeriaIndex - 1 + imgs.length) % imgs.length; mostrarImagenModal(); };
   const irSiguiente = () => { const imgs = window._modalGaleria || []; galeriaIndex = (galeriaIndex + 1) % imgs.length; mostrarImagenModal(); };
   document.getElementById("modal-prev").addEventListener("click", irAnterior);
@@ -2393,7 +2415,6 @@ function initModalListenersOnce() {
   document.getElementById("modal-comprar-ahora").addEventListener("click", () => {
     if (!productoModalActual) return;
     if (!Carrito.agregar(productoModalActual, 1)) return;
-    cerrarProductoModal?.();
     abrirCheckout();
   });
   document.getElementById("modal-fav").addEventListener("click", () => { if (productoModalActual) { Favoritos.toggle(productoModalActual.id); actualizarFavModal(); } });
