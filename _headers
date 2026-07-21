@@ -1,0 +1,15 @@
+# Obliga al navegador a preguntarle al servidor si hay una versión nueva del
+# HTML antes de usar su copia guardada. Sin esto, los clientes siguen viendo
+# la versión vieja de la tienda por horas después de publicar un cambio, y la
+# única forma de arreglarlo era borrar los datos del sitio a mano.
+#
+# "no-cache" NO significa "no guardar nada": el navegador igual guarda la
+# copia, pero pregunta antes de usarla. Si no cambió nada, el servidor
+# responde "seguí usando la tuya" y no se descarga de nuevo — sigue siendo
+# rápido, pero nunca queda desactualizado.
+
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
