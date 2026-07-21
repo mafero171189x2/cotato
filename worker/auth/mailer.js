@@ -11,6 +11,20 @@
 //                                en myaccount.google.com con 2FA activado)
 import { WorkerMailer } from "worker-mailer";
 
+/** Escapa texto antes de meterlo en el HTML del mail.
+ *  Sin esto, un cliente podía poner HTML en su nombre o teléfono al hacer el
+ *  checkout y ese HTML llegaba tal cual al mail del admin — por ejemplo un
+ *  <a href> con un link de phishing dentro de un mail que parece legítimo
+ *  porque sale de la propia tienda. */
+function esc(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function enviarEmailReset(env, destinatarioEmail, link) {
   if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
     console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo enviar el mail de recuperación");
@@ -31,7 +45,7 @@ export async function enviarEmailReset(env, destinatarioEmail, link) {
         subject: "Recuperar tu contraseña — COTATO",
         html: `
           <p>Recibimos un pedido para restablecer tu contraseña en COTATO.</p>
-          <p><a href="${link}">Tocá acá para crear una contraseña nueva</a></p>
+          <p><a href="${esc(link)}">Tocá acá para crear una contraseña nueva</a></p>
           <p>Este link vence en 1 hora. Si vos no pediste esto, podés ignorar este mail tranquilamente.</p>
         `
       }
@@ -61,7 +75,7 @@ export async function enviarEmailEstadoPedido(env, destinatarioEmail, pedido) {
     console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo enviar el aviso de pedido");
     return false;
   }
-  const msg = MENSAJES_ESTADO[pedido.estado] || { asunto: "Actualización de tu pedido", texto: `Tu pedido cambió de estado a: ${pedido.estado}.` };
+  const msg = MENSAJES_ESTADO[pedido.estado] || { asunto: "Actualización de tu pedido", texto: `Tu pedido cambió de estado a: ${esc(pedido.estado)}.` };
   try {
     await WorkerMailer.send(
       {
@@ -76,10 +90,10 @@ export async function enviarEmailEstadoPedido(env, destinatarioEmail, pedido) {
         to: destinatarioEmail,
         subject: `${msg.asunto} — Pedido ${pedido.numeroPedido}`,
         html: `
-          <p>Hola${pedido.cliente?.nombre ? " " + pedido.cliente.nombre : ""},</p>
+          <p>Hola${pedido.cliente?.nombre ? " " + esc(pedido.cliente.nombre) : ""},</p>
           <p>${msg.texto}</p>
-          <p><strong>Pedido:</strong> ${pedido.numeroPedido}<br>
-          <strong>Estado actual:</strong> ${pedido.estado}</p>
+          <p><strong>Pedido:</strong> ${esc(pedido.numeroPedido)}<br>
+          <strong>Estado actual:</strong> ${esc(pedido.estado)}</p>
           <p>Cualquier consulta, respondé este mail o escribinos.</p>
         `
       }
@@ -102,7 +116,7 @@ export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido
     console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo avisar del pedido nuevo");
     return false;
   }
-  const listaItems = pedido.items.map((i) => `${i.cantidad}x ${i.nombre} — $${(i.precio * i.cantidad).toLocaleString("es-AR")}`).join("<br>");
+  const listaItems = pedido.items.map((i) => `${Number(i.cantidad) || 0}x ${esc(i.nombre)} — $${(i.precio * i.cantidad).toLocaleString("es-AR")}`).join("<br>");
   try {
     await WorkerMailer.send(
       {
@@ -115,12 +129,12 @@ export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido
       {
         from: { name: "COTATO", email: env.GMAIL_USER },
         to: destinatarioEmail,
-        subject: `🛒 Nuevo pedido ${pedido.numeroPedido} — $${pedido.total.toLocaleString("es-AR")}`,
+        subject: `🛒 Nuevo pedido ${esc(pedido.numeroPedido)} — $${pedido.total.toLocaleString("es-AR")}`,
         html: `
           <p>Entró un pedido nuevo en COTATO.</p>
-          <p><strong>Pedido:</strong> ${pedido.numeroPedido}<br>
-          <strong>Cliente:</strong> ${pedido.clienteNombre}<br>
-          <strong>Teléfono:</strong> ${pedido.clienteTelefono || "—"}</p>
+          <p><strong>Pedido:</strong> ${esc(pedido.numeroPedido)}<br>
+          <strong>Cliente:</strong> ${esc(pedido.clienteNombre)}<br>
+          <strong>Teléfono:</strong> ${esc(pedido.clienteTelefono) || "—"}</p>
           <p><strong>Productos:</strong><br>${listaItems}</p>
           <p><strong>Subtotal:</strong> $${pedido.total.toLocaleString("es-AR")}<br>
           <strong>Envío:</strong> $${pedido.envio.toLocaleString("es-AR")}<br>
