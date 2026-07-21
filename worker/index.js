@@ -7,19 +7,46 @@ import { handleConfig, handleCatalogo } from "./routes/config.js";
 import { handleAdmins } from "./routes/admins.js";
 import { jsonError } from "./auth/middleware.js";
 
-// En producción, poné acá el dominio real de tu Pages (o el custom domain).
-// "*" funciona pero no permite cookies cross-origin con credentials — si el
-// Worker y el Pages quedan en dominios distintos, hace falta el origin exacto.
+/** Orígenes permitidos. Poné CORS_ORIGIN en las variables del Worker con el
+ *  dominio real (se aceptan varios separados por coma).
+ *
+ *  Cambio de seguridad: antes, si faltaba la variable, el default era "*" y
+ *  cualquier sitio del mundo podía pegarle a la API. Ahora el default es la
+ *  lista de abajo, y un origen desconocido simplemente no recibe headers CORS. */
+const ORIGENES_POR_DEFECTO = [
+  "https://cotato.pages.dev",
+  "http://localhost:8788",
+  "http://localhost:3000"
+];
+
+function origenesPermitidos(env) {
+  if (env.CORS_ORIGIN && env.CORS_ORIGIN !== "*") {
+    return env.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean);
+  }
+  return ORIGENES_POR_DEFECTO;
+}
+
 function corsHeaders(origin, env) {
-  const permitido = env.CORS_ORIGIN || "*";
-  return {
-    "Access-Control-Allow-Origin": permitido === "*" ? "*" : (origin === permitido ? origin : permitido),
+  const permitidos = origenesPermitidos(env);
+  const base = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
+  if (origin && permitidos.includes(origin)) {
+    return { ...base, "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true" };
+  }
+  // Origen desconocido: el navegador bloquea la respuesta del lado del cliente.
+  return base;
 }
+
+// Cabeceras de seguridad para cualquier respuesta de la API.
+const SEGURIDAD = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "Cache-Control": "no-store"
+};
 
 export default {
   async fetch(request, env, ctx) {
@@ -31,13 +58,26 @@ export default {
       return new Response(null, { headers: cors });
     }
 
+    const aplicar = (resp, conNoStore = true) => {
+      const r = new Response(resp.body, resp);
+      Object.entries(cors).forEach(([k, v]) => r.headers.set(k, v));
+      Object.entries(SEGURIDAD).forEach(([k, v]) => {
+        // El catálogo público sí se cachea; el resto no.
+        if (k === "Cache-Control" && !conNoStore) return;
+        r.headers.set(k, v);
+      });
+      return r;
+    };
+
     try {
       let response;
+      let cacheable = false;
 
       if (url.pathname.startsWith("/api/auth/")) {
         response = await handleAuth(request, env, url);
       } else if (url.pathname === "/api/catalogo") {
         response = await handleCatalogo(request, env, ctx);
+        cacheable = true;
       } else if (url.pathname.startsWith("/api/productos")) {
         response = await handleProductos(request, env, url);
       } else if (url.pathname.startsWith("/api/categorias")) {
@@ -54,21 +94,13 @@ export default {
         response = jsonError("Ruta no encontrada", 404);
       }
 
-      // Agrega headers CORS a cualquier respuesta (incluidas las de error)
-      const nuevaResponse = new Response(response.body, response);
-      Object.entries(cors).forEach(([k, v]) => nuevaResponse.headers.set(k, v));
-      return nuevaResponse;
+      return aplicar(response, !cacheable);
     } catch (err) {
-      // Las funciones requiereCliente/requiereAdmin lanzan Response directamente
-      if (err instanceof Response) {
-        const r = new Response(err.body, err);
-        Object.entries(cors).forEach(([k, v]) => r.headers.set(k, v));
-        return r;
-      }
+      // requiereAdmin / requiereCliente / leerJson lanzan Response directamente
+      if (err instanceof Response) return aplicar(err);
+      // El detalle del error queda en los logs, nunca en la respuesta.
       console.error(err);
-      const r = jsonError("Error interno del servidor", 500);
-      Object.entries(cors).forEach(([k, v]) => r.headers.set(k, v));
-      return r;
+      return aplicar(jsonError("Error interno del servidor", 500));
     }
   }
 };
