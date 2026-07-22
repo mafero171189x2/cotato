@@ -6,6 +6,7 @@ import { handleClientes } from "./routes/clientes.js";
 import { handleConfig, handleCatalogo } from "./routes/config.js";
 import { handleAdmins } from "./routes/admins.js";
 import { jsonError } from "./auth/middleware.js";
+import { enviarEmailErrorWorker } from "./auth/mailer.js";
 
 /** Orígenes permitidos. Poné CORS_ORIGIN en las variables del Worker con el
  *  dominio real (se aceptan varios separados por coma).
@@ -97,9 +98,11 @@ export default {
       return aplicar(response, !cacheable);
     } catch (err) {
       // requiereAdmin / requiereCliente / leerJson lanzan Response directamente
+      // — eso no es un bug, es un rechazo esperado (401/403/400), no avisa por mail.
       if (err instanceof Response) return aplicar(err);
       // El detalle del error queda en los logs, nunca en la respuesta.
       console.error(err);
+      ctx.waitUntil(enviarEmailErrorWorker(env, { mensaje: String(err?.message || err), url: url.pathname, metodo: request.method }));
       return aplicar(jsonError("Error interno del servidor", 500));
     }
   }
