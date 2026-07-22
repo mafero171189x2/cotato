@@ -957,9 +957,12 @@ img { display: block; max-width: 100%; }
 
       <!-- CATEGORIAS -->
       <div class="admin-seccion hidden" id="seccion-categorias">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-6 gap-2 flex-wrap">
           <h1 class="text-2xl font-bold">Categorías</h1>
-          <button id="btn-nueva-categoria" type="button" class="px-4 py-2 rounded-lg font-medium flex items-center gap-2" style="background:var(--btn-fondo);color:var(--btn-texto)"><i data-lucide="plus" style="width:16px;height:16px"></i>Nueva categoría</button>
+          <div class="flex gap-2">
+            <button id="btn-ordenar-az-categorias" type="button" class="px-4 py-2 rounded-lg font-medium flex items-center gap-2 border border-gray-700 text-gray-300"><i data-lucide="arrow-down-a-z" style="width:16px;height:16px"></i>Ordenar A-Z</button>
+            <button id="btn-nueva-categoria" type="button" class="px-4 py-2 rounded-lg font-medium flex items-center gap-2" style="background:var(--btn-fondo);color:var(--btn-texto)"><i data-lucide="plus" style="width:16px;height:16px"></i>Nueva categoría</button>
+          </div>
         </div>
         <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
           <table class="w-full text-sm">
@@ -3439,31 +3442,39 @@ async function cargarCategoriasAdmin() {
 function renderTablaCategorias() {
   document.getElementById("tabla-categorias").innerHTML = categoriasAdminCache.map((c, i) => `
     <tr class="border-t border-gray-800">
+      <td class="p-3 w-16">
+        <div class="flex flex-col items-center justify-center rounded-lg border border-gray-700 overflow-hidden w-8">
+          <button data-mover-cat="${c.id}" data-direccion="arriba" ${i === 0 ? "disabled" : ""} class="w-full py-1 flex items-center justify-center ${i === 0 ? "opacity-25 cursor-not-allowed" : "hover:bg-gray-700 active:bg-gray-600"}" aria-label="Subir"><i data-lucide="chevron-up" style="width:15px;height:15px"></i></button>
+          <span class="text-[11px] text-gray-500 py-0.5 border-t border-b border-gray-700 w-full text-center">${i + 1}</span>
+          <button data-mover-cat="${c.id}" data-direccion="abajo" ${i === categoriasAdminCache.length - 1 ? "disabled" : ""} class="w-full py-1 flex items-center justify-center ${i === categoriasAdminCache.length - 1 ? "opacity-25 cursor-not-allowed" : "hover:bg-gray-700 active:bg-gray-600"}" aria-label="Bajar"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></button>
+        </div>
+      </td>
       <td class="p-3">${escapeHTML(c.nombre)}</td>
       <td class="p-3 text-gray-500">${escapeHTML(c.nombre)}</td>
       <td class="p-3 text-right whitespace-nowrap">
-        <button data-mover-cat="${c.id}" data-direccion="arriba" ${i === 0 ? "disabled" : ""} class="p-1.5 text-gray-400 hover:text-gray-900 ${i === 0 ? "opacity-30 cursor-not-allowed" : ""}" aria-label="Subir"><i data-lucide="chevron-up" style="width:15px;height:15px"></i></button>
-        <button data-mover-cat="${c.id}" data-direccion="abajo" ${i === categoriasAdminCache.length - 1 ? "disabled" : ""} class="p-1.5 text-gray-400 hover:text-gray-900 ${i === categoriasAdminCache.length - 1 ? "opacity-30 cursor-not-allowed" : ""}" aria-label="Bajar"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></button>
         <button data-editar-cat="${c.id}" class="p-1.5 text-gray-400 hover:text-gray-900"><i data-lucide="pencil" style="width:15px;height:15px"></i></button>
         <button data-eliminar-cat="${c.id}" class="p-1.5 text-gray-400 hover:text-red-400"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
       </td>
-    </tr>`).join("") || `<tr><td colspan="3" class="text-center text-gray-500 p-8">No hay categorías cargadas.</td></tr>`;
+    </tr>`).join("") || `<tr><td colspan="4" class="text-center text-gray-500 p-8">No hay categorías cargadas.</td></tr>`;
 
-  document.querySelectorAll("[data-mover-cat]").forEach((b) => b.addEventListener("click", async () => {
+  document.querySelectorAll("[data-mover-cat]").forEach((b) => b.addEventListener("click", () => {
     const idx = categoriasAdminCache.findIndex((x) => x.id === b.dataset.moverCat);
     const idxOtro = b.dataset.direccion === "arriba" ? idx - 1 : idx + 1;
     if (idx === -1 || idxOtro < 0 || idxOtro >= categoriasAdminCache.length) return;
     const a = categoriasAdminCache[idx], otro = categoriasAdminCache[idxOtro];
-    b.disabled = true;
-    try {
-      // Intercambiamos el "orden" de las dos categorías vecinas.
-      await api(`/api/categorias/${a.id}`, { method: "PUT", body: { nombre: a.nombre, orden: otro.orden } });
-      await api(`/api/categorias/${otro.id}`, { method: "PUT", body: { nombre: otro.nombre, orden: a.orden } });
-      await cargarCategoriasAdmin();
-    } catch (err) {
+    // Actualización optimista: se ve el cambio al toque, sin esperar al
+    // servidor. Los PUT van en paralelo atrás; si algo falla, se revierte.
+    const ordenA = a.orden, ordenOtro = otro.orden;
+    a.orden = ordenOtro; otro.orden = ordenA;
+    [categoriasAdminCache[idx], categoriasAdminCache[idxOtro]] = [categoriasAdminCache[idxOtro], categoriasAdminCache[idx]];
+    renderTablaCategorias();
+    Promise.all([
+      api(`/api/categorias/${a.id}`, { method: "PUT", body: { nombre: a.nombre, orden: a.orden } }),
+      api(`/api/categorias/${otro.id}`, { method: "PUT", body: { nombre: otro.nombre, orden: otro.orden } })
+    ]).catch((err) => {
       mostrarToast(err.message || "No se pudo reordenar", "error");
-      b.disabled = false;
-    }
+      cargarCategoriasAdmin(); // trae de nuevo el orden real si algo se rompió
+    });
   }));
 
   const selectCatProducto = document.getElementById("pf-categoria");
@@ -3496,6 +3507,24 @@ function renderTablaCategorias() {
   lucide.createIcons();
 }
 function initCategoriasAdminListenersOnce() {
+  document.getElementById("btn-ordenar-az-categorias").addEventListener("click", async () => {
+    if (!(await confirmarAccion({ titulo: "¿Ordenar A-Z?", mensaje: "Reacomoda todas las categorías por orden alfabético. El orden manual que tenías se pierde.", textoConfirmar: "Ordenar" }))) return;
+    const btn = document.getElementById("btn-ordenar-az-categorias");
+    btn.disabled = true;
+    const ordenadas = [...categoriasAdminCache].sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+    ordenadas.forEach((c, i) => (c.orden = i));
+    categoriasAdminCache = ordenadas;
+    renderTablaCategorias(); // se ve al toque, los PUT van atrás
+    try {
+      await Promise.all(ordenadas.map((c) => api(`/api/categorias/${c.id}`, { method: "PUT", body: { nombre: c.nombre, orden: c.orden } })));
+      mostrarToast("Categorías ordenadas", "success");
+    } catch (err) {
+      mostrarToast(err.message || "No se pudo ordenar", "error");
+      cargarCategoriasAdmin();
+    } finally {
+      btn.disabled = false;
+    }
+  });
   document.getElementById("btn-nueva-categoria").addEventListener("click", () => {
     document.getElementById("form-categoria").reset();
     document.getElementById("cat-id").value = "";
