@@ -3442,11 +3442,10 @@ async function cargarCategoriasAdmin() {
 function renderTablaCategorias() {
   document.getElementById("tabla-categorias").innerHTML = categoriasAdminCache.map((c, i) => `
     <tr class="border-t border-gray-800">
-      <td class="p-3 w-16">
-        <div class="flex flex-col items-center justify-center rounded-lg border border-gray-700 overflow-hidden w-8">
-          <button data-mover-cat="${c.id}" data-direccion="arriba" ${i === 0 ? "disabled" : ""} class="w-full py-1 flex items-center justify-center ${i === 0 ? "opacity-25 cursor-not-allowed" : "hover:bg-gray-700 active:bg-gray-600"}" aria-label="Subir"><i data-lucide="chevron-up" style="width:15px;height:15px"></i></button>
-          <span class="text-[11px] text-gray-500 py-0.5 border-t border-b border-gray-700 w-full text-center">${i + 1}</span>
-          <button data-mover-cat="${c.id}" data-direccion="abajo" ${i === categoriasAdminCache.length - 1 ? "disabled" : ""} class="w-full py-1 flex items-center justify-center ${i === categoriasAdminCache.length - 1 ? "opacity-25 cursor-not-allowed" : "hover:bg-gray-700 active:bg-gray-600"}" aria-label="Bajar"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></button>
+      <td class="p-3">
+        <div class="flex gap-1">
+          <button data-mover-cat="${c.id}" data-direccion="arriba" ${i === 0 ? "disabled" : ""} class="w-7 h-7 flex items-center justify-center rounded-md border border-gray-700 ${i === 0 ? "opacity-25 cursor-not-allowed" : "hover:bg-gray-700 active:bg-gray-600"}" aria-label="Subir"><i data-lucide="chevron-up" style="width:14px;height:14px"></i></button>
+          <button data-mover-cat="${c.id}" data-direccion="abajo" ${i === categoriasAdminCache.length - 1 ? "disabled" : ""} class="w-7 h-7 flex items-center justify-center rounded-md border border-gray-700 ${i === categoriasAdminCache.length - 1 ? "opacity-25 cursor-not-allowed" : "hover:bg-gray-700 active:bg-gray-600"}" aria-label="Bajar"><i data-lucide="chevron-down" style="width:14px;height:14px"></i></button>
         </div>
       </td>
       <td class="p-3">${escapeHTML(c.nombre)}</td>
