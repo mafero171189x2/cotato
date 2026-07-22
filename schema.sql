@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS productos (
   en_oferta           INTEGER NOT NULL DEFAULT 0,        -- boolean 0/1
   porcentaje_descuento REAL NOT NULL DEFAULT 0,
   activo              INTEGER NOT NULL DEFAULT 1,        -- boolean 0/1
+  -- Muestra en la tienda "Precio con transferencia" debajo del precio.
+  precio_transferencia INTEGER NOT NULL DEFAULT 1,       -- boolean 0/1
   imagenes            TEXT NOT NULL DEFAULT '[]',        -- JSON array de URLs (Cloudinary)
   cantidad_vendida    INTEGER NOT NULL DEFAULT 0,
   fecha_publicacion   TEXT NOT NULL DEFAULT (datetime('now'))
