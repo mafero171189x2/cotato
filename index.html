@@ -1357,19 +1357,6 @@ img { display: block; max-width: 100%; }
   </div>
 </div>
 
-<!-- Modal bienvenida (cliente nuevo) -->
-<div id="modal-bienvenida" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/70 p-4">
-  <div class="bg-gray-900 border rounded-2xl max-w-sm w-full p-7 text-center relative overflow-hidden" style="border-color:var(--btn-fondo)66">
-    <div class="absolute inset-x-0 top-0 h-1" style="background:var(--btn-fondo)"></div>
-    <div class="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style="background:var(--btn-fondo)22">
-      <i data-lucide="party-popper" style="width:28px;height:28px;color:var(--btn-fondo)"></i>
-    </div>
-    <h3 class="text-xl font-bold mb-1.5">¡Bienvenido/a a COTATO<span id="bienvenida-nombre"></span>!</h3>
-    <p class="text-sm text-gray-400 mb-6">Tu cuenta ya está lista. Desde "Mi cuenta" vas a poder ver tus pedidos, tus datos y tus favoritos cuando quieras.</p>
-    <button id="btn-cerrar-bienvenida" type="button" class="w-full py-3 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Empezar a comprar</button>
-  </div>
-</div>
-
 <!-- Modal cambiar contraseña de admin -->
 <div id="modal-clave-admin" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/70 p-4">
   <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6">
@@ -1470,15 +1457,6 @@ if (!API_CONFIGURADA) {
  *  El token viaja en el header porque la cookie cruzada entre pages.dev y
  *  workers.dev es "de terceros" para el navegador y se bloquea en incógnito. */
 const TOKEN_KEY = "cotato_token";
-function mostrarBienvenida(nombre) {
-  document.getElementById("bienvenida-nombre").textContent = nombre ? `, ${nombre}` : "";
-  abrirModal("modal-bienvenida");
-  lucide.createIcons();
-}
-document.getElementById("btn-cerrar-bienvenida").addEventListener("click", () => {
-  cerrarModal("modal-bienvenida");
-  location.hash = "#/";
-});
 async function api(path, { method = "GET", body, timeoutMs = 9000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -3201,10 +3179,11 @@ function initCuentaListenersOnce() {
     }
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password, datos);
+      mostrarToast("¡Cuenta creada! Completá tus datos en Mi cuenta antes de comprar.", "success");
       localStorage.removeItem("mu_checkout_pendiente");
       await cargarClienteActual();
       await recuperarCarritoDeLaCuenta();
-      mostrarBienvenida(datos.nombre?.trim());
+      location.hash = "#/";
     } catch (err) {
       console.error(err);
       errorBox.textContent = /ya existe|already/i.test(err.message || "") ? "Ese email ya tiene una cuenta — probá ingresar." : (err.message || "No se pudo crear la cuenta. Revisá los datos.");
