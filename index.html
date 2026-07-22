@@ -1166,10 +1166,11 @@ img { display: block; max-width: 100%; }
       <div class="p-5">
         <div id="modal-marca" class="text-xs uppercase tracking-wide text-gray-500 mb-1"></div>
         <h3 id="modal-title" class="font-bold text-xl mb-2"></h3>
-        <div class="flex items-center gap-3 mb-3">
+        <div class="flex items-center gap-3 mb-1">
           <span id="modal-price" class="text-2xl precio-destacado"></span>
           <span id="modal-price-old" class="text-sm text-gray-500 line-through" style="display:none"></span>
         </div>
+        <p id="modal-transferencia" class="text-xs mb-3" style="display:none;color:var(--btn-fondo)">Precio con transferencia</p>
         <p id="modal-desc" class="text-sm text-gray-400 mb-4"></p>
         <div id="modal-stock" class="text-sm mb-4"></div>
         <div class="flex gap-3">
@@ -1299,6 +1300,13 @@ img { display: block; max-width: 100%; }
         </div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Marca</label><input type="text" id="pf-marca" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Precio *</label><input type="number" id="pf-precio" min="0" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div class="flex items-start gap-2.5">
+          <input type="checkbox" id="pf-transferencia" checked class="w-4 h-4 mt-0.5 flex-shrink-0">
+          <label for="pf-transferencia" class="text-sm">
+            <span class="block">Precio con transferencia</span>
+            <span class="block text-xs text-gray-500 mt-0.5">Muestra en la tienda que ese precio es pagando por transferencia.</span>
+          </label>
+        </div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Stock *</label><input type="number" id="pf-stock" min="0" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
         <div class="flex items-center gap-2"><input type="checkbox" id="pf-oferta" class="w-4 h-4"><label for="pf-oferta" class="text-sm">En oferta</label></div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Descuento (%)</label><input type="number" id="pf-descuento" min="0" max="90" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
@@ -1918,6 +1926,7 @@ function productCardHTML(p) {
         <p class="pc-precio precio-destacado" style="font-size:1.3rem">${formatearPrecio(precioF)}</p>
         ${p.enOferta ? `<p class="pc-precio-old text-xs text-gray-500 line-through">${formatearPrecio(p.precio)}</p>` : ""}
       </div>
+      ${p.precioTransferencia !== false ? `<p class="text-[11px] mt-0.5" style="color:var(--btn-fondo)">Precio con transferencia</p>` : ""}
       <span class="flex-1"></span>
       <div class="flex gap-2 mt-3">
         <button type="button" class="add-cart flex-1 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors leading-tight" style="border-color:var(--texto)55;color:var(--texto);background:rgba(26,22,20,.08)" data-id="${p.id}" ${sinStock ? "disabled" : ""}>${sinStock ? "Sin stock" : "Agregar al carrito"}</button>
@@ -2406,6 +2415,7 @@ async function initProductoVista(id) {
   document.getElementById("modal-marca").textContent = "";
   document.getElementById("modal-price").textContent = "";
   document.getElementById("modal-price-old").style.display = "none";
+  document.getElementById("modal-transferencia").style.display = "none";
   document.getElementById("modal-desc").textContent = "";
   document.getElementById("modal-stock").textContent = "";
   document.getElementById("modal-counter").textContent = "";
@@ -2432,6 +2442,7 @@ async function initProductoVista(id) {
   const precioOld = document.getElementById("modal-price-old");
   if (p.enOferta && p.precio > precioF) { precioOld.style.display = "inline"; precioOld.textContent = formatearPrecio(p.precio); }
   else precioOld.style.display = "none";
+  document.getElementById("modal-transferencia").style.display = p.precioTransferencia !== false ? "block" : "none";
   document.getElementById("modal-desc").textContent = p.descripcion || "";
   const stockEl = document.getElementById("modal-stock");
   const btnAdd = document.getElementById("modal-add-cart");
@@ -3701,6 +3712,7 @@ function abrirFormularioProducto() {
   document.getElementById("pf-id").value = "";
   document.getElementById("modal-producto-titulo").textContent = "Nuevo producto";
   document.getElementById("pf-activo").checked = true;
+  document.getElementById("pf-transferencia").checked = true;
   document.getElementById("pf-categoria-nueva").style.display = "none";
   document.getElementById("pf-categoria-nueva").value = "";
   imagenesTemp = [];
@@ -3734,6 +3746,7 @@ function abrirEdicionProducto(id) {
   document.getElementById("pf-oferta").checked = !!p.enOferta;
   document.getElementById("pf-descuento").value = p.porcentajeDescuento || 0;
   document.getElementById("pf-activo").checked = !!p.activo;
+  document.getElementById("pf-transferencia").checked = p.precioTransferencia !== false;
   imagenesTemp = (p.imagenes || []).map((url) => ({ url }));
   renderImagenesPreview();
   abrirModal("modal-producto");
@@ -4071,6 +4084,7 @@ function initProductosAdminListenersOnce() {
         enOferta: document.getElementById("pf-oferta").checked,
         porcentajeDescuento: Number(document.getElementById("pf-descuento").value) || 0,
         activo: document.getElementById("pf-activo").checked,
+        precioTransferencia: document.getElementById("pf-transferencia").checked,
         imagenes: imagenesTemp.map((i) => i.url)
       };
       if (id) await api(`/api/productos/${id}`, { method: "PUT", body: data });
