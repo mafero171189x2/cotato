@@ -14,6 +14,7 @@ export function mapProducto(row) {
     enOferta: !!row.en_oferta,
     porcentajeDescuento: row.porcentaje_descuento,
     activo: !!row.activo,
+    precioTransferencia: row.precio_transferencia === null || row.precio_transferencia === undefined ? true : !!row.precio_transferencia,
     imagenes: JSON.parse(row.imagenes || "[]"),
     cantidadVendida: row.cantidad_vendida,
     fechaPublicacion: row.fecha_publicacion
