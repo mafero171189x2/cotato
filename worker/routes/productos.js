@@ -25,6 +25,7 @@ function normalizarProducto(b) {
     enOferta: b.enOferta ? 1 : 0,
     porcentajeDescuento: Math.min(100, Math.max(0, Number(b.porcentajeDescuento) || 0)),
     activo: b.activo === false ? 0 : 1,
+    precioTransferencia: b.precioTransferencia === false ? 0 : 1,
     imagenes: JSON.stringify(imagenes)
   };
 }
@@ -66,9 +67,9 @@ export async function handleProductos(request, env, url) {
 
     const nuevoId = uuid();
     await env.DB.prepare(
-      `INSERT INTO productos (id, nombre, descripcion, categoria, marca, precio, stock, en_oferta, porcentaje_descuento, activo, imagenes, cantidad_vendida)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
-    ).bind(nuevoId, p.nombre, p.descripcion, p.categoria, p.marca, p.precio, p.stock, p.enOferta, p.porcentajeDescuento, p.activo, p.imagenes).run();
+      `INSERT INTO productos (id, nombre, descripcion, categoria, marca, precio, stock, en_oferta, porcentaje_descuento, activo, precio_transferencia, imagenes, cantidad_vendida)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+    ).bind(nuevoId, p.nombre, p.descripcion, p.categoria, p.marca, p.precio, p.stock, p.enOferta, p.porcentajeDescuento, p.activo, p.precioTransferencia, p.imagenes).run();
 
     const row = await env.DB.prepare("SELECT * FROM productos WHERE id = ?").bind(nuevoId).first();
     await invalidarCacheCatalogo();
@@ -86,9 +87,9 @@ export async function handleProductos(request, env, url) {
     if (!existe) return jsonError("Producto no encontrado", 404);
 
     await env.DB.prepare(
-      `UPDATE productos SET nombre=?, descripcion=?, categoria=?, marca=?, precio=?, stock=?, en_oferta=?, porcentaje_descuento=?, activo=?, imagenes=?
+      `UPDATE productos SET nombre=?, descripcion=?, categoria=?, marca=?, precio=?, stock=?, en_oferta=?, porcentaje_descuento=?, activo=?, precio_transferencia=?, imagenes=?
        WHERE id=?`
-    ).bind(p.nombre, p.descripcion, p.categoria, p.marca, p.precio, p.stock, p.enOferta, p.porcentajeDescuento, p.activo, p.imagenes, id).run();
+    ).bind(p.nombre, p.descripcion, p.categoria, p.marca, p.precio, p.stock, p.enOferta, p.porcentajeDescuento, p.activo, p.precioTransferencia, p.imagenes, id).run();
 
     const row = await env.DB.prepare("SELECT * FROM productos WHERE id = ?").bind(id).first();
     await invalidarCacheCatalogo();
