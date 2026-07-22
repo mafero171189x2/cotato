@@ -212,8 +212,9 @@ export async function enviarEmailBienvenida(env, destinatarioEmail, nombreClient
         to: destinatarioEmail,
         subject: "¡Bienvenido/a a COTATO!",
         html: `
-          <p>Hola${nombreCliente ? " " + nombreCliente : ""},</p>
-          <p>Tu cuenta en COTATO ya está lista. Desde "Mi cuenta" podés ver tus pedidos, tus datos y tus favoritos.</p>
+          <p>¡Hola${nombreCliente ? " " + nombreCliente : ""}! 🎉</p>
+          <p>¡Bienvenido/a a COTATO! Gracias por registrarte — es un gusto tenerte con nosotros.</p>
+          <p>Tu cuenta ya está lista. Desde "Mi cuenta" podés ver tus pedidos, tus datos y tus favoritos cuando quieras.</p>
         `
       }
     );
