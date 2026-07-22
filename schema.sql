@@ -58,7 +58,10 @@ CREATE TABLE IF NOT EXISTS clientes (
   codigo_postal   TEXT NOT NULL DEFAULT '',
   fecha_registro  TEXT NOT NULL DEFAULT (datetime('now')),
   reset_token     TEXT,                              -- token temporal p/ recuperar contraseña
-  reset_token_exp TEXT
+  reset_token_exp TEXT,
+  -- Se incrementa al cambiar la contraseña o cerrar sesión: invalida todos
+  -- los JWT emitidos antes (el token guarda este número como "tv").
+  token_version   INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_clientes_email ON clientes(email);
 
@@ -81,7 +84,19 @@ CREATE TABLE IF NOT EXISTS admins (
   password_hash TEXT NOT NULL,
   creado        TEXT NOT NULL DEFAULT (datetime('now')),
   reset_token     TEXT,
-  reset_token_exp TEXT
+  reset_token_exp TEXT,
+  token_version   INTEGER NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
+-- INTENTOS — rate limiting de login / registro / recuperación de contraseña.
+-- La clave combina endpoint + IP (+ email según el caso). Ver worker/auth/ratelimit.js
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS intentos (
+  clave           TEXT PRIMARY KEY,
+  intentos        INTEGER NOT NULL DEFAULT 0,
+  bloqueado_hasta TEXT,
+  ultimo          TEXT
 );
 
 -- ---------------------------------------------------------------------------
