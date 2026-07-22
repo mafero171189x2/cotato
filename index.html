@@ -811,6 +811,7 @@ img { display: block; max-width: 100%; }
             <input type="password" id="cr-password" required minlength="8" autocomplete="new-password" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 pr-10 text-sm">
             <button type="button" data-toggle-pass="cr-password" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500" aria-label="Mostrar contraseña"><i data-lucide="eye" style="width:16px;height:16px"></i></button>
           </div>
+          <p class="text-xs text-gray-500 mt-1">Mínimo 8 caracteres. Evitá contraseñas obvias como "12345678" o "password".</p>
         </div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Repetir contraseña *</label>
           <div class="relative">
@@ -1474,7 +1475,10 @@ function mostrarBienvenida(nombre) {
   abrirModal("modal-bienvenida");
   lucide.createIcons();
 }
-document.getElementById("btn-cerrar-bienvenida").addEventListener("click", () => cerrarModal("modal-bienvenida"));
+document.getElementById("btn-cerrar-bienvenida").addEventListener("click", () => {
+  cerrarModal("modal-bienvenida");
+  location.hash = "#/";
+});
 async function api(path, { method = "GET", body, timeoutMs = 9000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -3200,11 +3204,10 @@ function initCuentaListenersOnce() {
       localStorage.removeItem("mu_checkout_pendiente");
       await cargarClienteActual();
       await recuperarCarritoDeLaCuenta();
-      location.hash = "#/";
       mostrarBienvenida(datos.nombre?.trim());
     } catch (err) {
       console.error(err);
-      errorBox.textContent = /ya existe|already/i.test(err.message || "") ? "Ese email ya tiene una cuenta — probá ingresar." : "No se pudo crear la cuenta. Revisá los datos.";
+      errorBox.textContent = /ya existe|already/i.test(err.message || "") ? "Ese email ya tiene una cuenta — probá ingresar." : (err.message || "No se pudo crear la cuenta. Revisá los datos.");
       errorBox.style.display = "block";
     } finally { btn.disabled = false; btn.textContent = "Crear cuenta"; }
   });
