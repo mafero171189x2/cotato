@@ -1041,12 +1041,12 @@ img { display: block; max-width: 100%; }
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs uppercase text-gray-400 mb-1.5">Adicional por artículo extra</label>
-              <input type="number" id="env-adicional" min="0" step="any" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <input type="text" inputmode="numeric" id="env-adicional" class="input-miles w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
               <p class="text-[10px] text-gray-500 mt-1">Se cobra por cada artículo además del primero (caja más grande).</p>
             </div>
             <div>
               <label class="block text-xs uppercase text-gray-400 mb-1.5">Envío gratis desde</label>
-              <input type="number" id="env-gratis-desde" min="0" step="any" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <input type="text" inputmode="numeric" id="env-gratis-desde" class="input-miles w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
               <p class="text-[10px] text-gray-500 mt-1">Dejalo en 0 para desactivarlo.</p>
             </div>
           </div>
@@ -1101,7 +1101,7 @@ img { display: block; max-width: 100%; }
                 <p class="text-xs text-gray-500 mt-1">Se va a guardar como: <span id="cfg-whatsapp-preview" style="color:var(--texto)">—</span> — revisá que sea correcto antes de guardar.</p>
                 <p class="text-xs text-gray-500 mt-1">Este mismo número se muestra como teléfono en la página de Contacto.</p>
               </div>
-              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Envío gratis a partir de</label><input type="number" id="cfg-envio-gratis" placeholder="50000" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
+              <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Envío gratis a partir de</label><input type="text" inputmode="numeric" id="cfg-envio-gratis" placeholder="50.000" class="input-miles w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
               <div><label class="block text-xs uppercase text-gray-400 mb-1.5">Alias / CBU para transferencias</label><input type="text" id="cfg-alias-cbu" placeholder="Ej: moda.urbana.mp" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm"></div>
             </div>
           </div>
@@ -1302,7 +1302,7 @@ img { display: block; max-width: 100%; }
           <input type="text" id="pf-categoria-nueva" placeholder="Nombre de la nueva categoría" style="display:none" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-2">
         </div>
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Marca</label><input type="text" id="pf-marca" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs uppercase text-gray-400 mb-1">Precio *</label><input type="number" id="pf-precio" min="0" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs uppercase text-gray-400 mb-1">Precio *</label><input type="text" inputmode="numeric" id="pf-precio" required class="input-miles w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
         <div class="flex items-start gap-2.5">
           <input type="checkbox" id="pf-transferencia" checked class="w-4 h-4 mt-0.5 flex-shrink-0">
           <label for="pf-transferencia" class="text-sm">
@@ -1754,6 +1754,15 @@ async function subirImagenCloudinaria(file, maxLado = 1000, calidad = 0.7) {
 /* 2) UTILIDADES                                                          */
 /* ---------------------------------------------------------------------- */
 function formatearPrecio(v) { return `$${(Number(v) || 0).toLocaleString("es-AR")}`; }
+// Formatea con puntos de miles mientras se escribe (50000 -> 50.000), en los
+// campos de plata del panel admin. El valor real (sin puntos) se lee con
+// numMiles() al guardar.
+function formatearInputMiles(el) {
+  const soloDigitos = el.value.replace(/\D/g, "");
+  el.value = soloDigitos ? Number(soloDigitos).toLocaleString("es-AR") : "";
+}
+function numMiles(el) { return Number(String(el.value || "").replace(/\D/g, "")) || 0; }
+document.addEventListener("input", (e) => { if (e.target.classList?.contains("input-miles")) formatearInputMiles(e.target); });
 function precioFinal(p) { return p.enOferta && p.porcentajeDescuento > 0 ? Math.round(p.precio - p.precio * (p.porcentajeDescuento / 100)) : p.precio; }
 function debounce(fn, delay = 280) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), delay); }; }
 function escapeHTML(str = "") { const d = document.createElement("div"); d.textContent = str; return d.innerHTML; }
@@ -3790,7 +3799,7 @@ function abrirEdicionProducto(id) {
     document.getElementById("pf-categoria-nueva").style.display = "none";
   }
   document.getElementById("pf-marca").value = p.marca || "";
-  document.getElementById("pf-precio").value = p.precio || 0;
+  document.getElementById("pf-precio").value = p.precio ? Number(p.precio).toLocaleString("es-AR") : "";
   document.getElementById("pf-stock").value = p.stock || 0;
   document.getElementById("pf-oferta").checked = !!p.enOferta;
   document.getElementById("pf-descuento").value = p.porcentajeDescuento || 0;
@@ -3923,16 +3932,16 @@ function renderEnviosAdmin() {
   if (!enviosBorrador) return;
   const b = enviosBorrador;
 
-  document.getElementById("env-adicional").value = Number(b.adicionalPorArticuloExtra) || 0;
-  document.getElementById("env-gratis-desde").value = Number(b.envioGratisDesde) || 0;
+  document.getElementById("env-adicional").value = (Number(b.adicionalPorArticuloExtra) || 0).toLocaleString("es-AR");
+  document.getElementById("env-gratis-desde").value = (Number(b.envioGratisDesde) || 0).toLocaleString("es-AR");
 
   document.getElementById("lista-zonas").innerHTML = (b.zonas || []).map((z, i) => `
     <div class="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
       <div class="flex items-center gap-2 mb-2">
         <input type="text" value="${escapeHTML(z.nombre)}" data-zona-nombre="${i}"
           class="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm font-semibold">
-        <input type="number" min="0" step="any" value="${z.precio ?? ""}" data-zona-precio="${i}" placeholder="$"
-          class="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm">
+        <input type="text" inputmode="numeric" value="${z.precio ? Number(z.precio).toLocaleString("es-AR") : ""}" data-zona-precio="${i}" placeholder="$"
+          class="input-miles w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm">
         ${(b.zonas || []).length > 1 ? `<button type="button" data-borrar-zona="${i}" class="text-red-400 text-xs">Quitar</button>` : ""}
       </div>
       <details>
@@ -3966,17 +3975,17 @@ function bindEnviosAdmin() {
   const b = enviosBorrador;
 
   document.getElementById("env-adicional").onchange = (e) => {
-    b.adicionalPorArticuloExtra = Number(e.target.value) || 0;
+    b.adicionalPorArticuloExtra = numMiles(e.target);
   };
   document.getElementById("env-gratis-desde").onchange = (e) => {
-    b.envioGratisDesde = Number(e.target.value) || 0;
+    b.envioGratisDesde = numMiles(e.target);
   };
 
   document.querySelectorAll("[data-zona-nombre]").forEach((el) => el.addEventListener("change", () => {
     b.zonas[+el.dataset.zonaNombre].nombre = el.value.trim() || "Zona";
   }));
   document.querySelectorAll("[data-zona-precio]").forEach((el) => el.addEventListener("change", () => {
-    b.zonas[+el.dataset.zonaPrecio].precio = el.value === "" ? null : (Number(el.value) || 0);
+    b.zonas[+el.dataset.zonaPrecio].precio = el.value === "" ? null : numMiles(el);
   }));
   document.querySelectorAll("[data-zona-prov]").forEach((el) => el.addEventListener("change", () => {
     const z = b.zonas[+el.dataset.zonaProv];
@@ -4128,7 +4137,7 @@ function initProductosAdminListenersOnce() {
         descripcion: document.getElementById("pf-desc").value.trim(),
         categoria: categoriaFinal,
         marca: document.getElementById("pf-marca").value.trim(),
-        precio: Number(document.getElementById("pf-precio").value) || 0,
+        precio: numMiles(document.getElementById("pf-precio")),
         stock: Number(document.getElementById("pf-stock").value) || 0,
         enOferta: document.getElementById("pf-oferta").checked,
         porcentajeDescuento: Number(document.getElementById("pf-descuento").value) || 0,
@@ -4312,8 +4321,8 @@ function verDetallePedido(id) {
     </table>
     <div class="text-right text-sm text-gray-400 mb-1">Productos: <span class="font-semibold" style="color:var(--texto)">${formatearPrecio(p.total)}</span></div>
     <label class="block text-xs uppercase text-gray-400 mb-1.5">Costo de envío</label>
-    <input id="input-envio-pedido" type="number" min="0" step="any" inputmode="decimal" value="${Number(p.envio) || 0}"
-      class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mb-2" placeholder="0">
+    <input id="input-envio-pedido" type="text" inputmode="numeric" value="${(Number(p.envio) || 0).toLocaleString("es-AR")}"
+      class="input-miles w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mb-2" placeholder="0">
     <div class="text-right font-bold text-lg mb-5">Total con envío: <span id="total-con-envio" style="color:var(--texto)">${formatearPrecio((Number(p.total) || 0) + (Number(p.envio) || 0))}</span></div>
     <label class="block text-xs uppercase text-gray-400 mb-1.5">Estado del pedido</label>
     <select id="select-estado-pedido" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mb-4">
@@ -4332,7 +4341,7 @@ function verDetallePedido(id) {
   const linkWa = cont.querySelector("#link-wa-pedido");
   const refrescarTotales = () => {
     if (!inputEnvio || !elTotalEnvio) return;
-    const envio = Math.max(0, Number(inputEnvio.value) || 0);
+    const envio = Math.max(0, numMiles(inputEnvio));
     const totalFinal = (Number(p.total) || 0) + envio;
     elTotalEnvio.textContent = formatearPrecio(totalFinal);
     if (linkWa) {
@@ -4347,7 +4356,7 @@ function verDetallePedido(id) {
     const btnGuardar = cont.querySelector("#btn-guardar-estado-pedido");
     btnGuardar.disabled = true; btnGuardar.textContent = "Guardando...";
     try {
-      const envio = Math.max(0, Number(cont.querySelector("#input-envio-pedido")?.value) || 0);
+      const envio = Math.max(0, numMiles(cont.querySelector("#input-envio-pedido") || { value: "" }));
       // El Worker se encarga de devolver/descontar el stock según corresponda
       // al cambiar de/hacia "cancelado", en una sola operación atómica.
       await api(`/api/pedidos/${id}`, { method: "PUT", body: { estado: nuevoEstado, envio } });
@@ -4373,7 +4382,7 @@ function verDetallePedido(id) {
       // primero (junto con el envío actual) para que el mail salga siempre con
       // el estado correcto, sin tener que tocar "Guardar cambios" antes.
       if (estadoElegido !== p.estado) {
-        const envio = Math.max(0, Number(cont.querySelector("#input-envio-pedido")?.value) || 0);
+        const envio = Math.max(0, numMiles(cont.querySelector("#input-envio-pedido") || { value: "" }));
         await api(`/api/pedidos/${id}`, { method: "PUT", body: { estado: estadoElegido, envio } });
         p.estado = estadoElegido;
       }
@@ -4428,7 +4437,7 @@ async function cargarConfigAdmin() {
     document.getElementById("cfg-banner-subtitulo").value = cfg.bannerSubtitulo || "";
     document.getElementById("cfg-whatsapp").value = cfg.whatsappNumero || "";
     document.getElementById("cfg-whatsapp-preview").textContent = cfg.whatsappNumero ? `+${cfg.whatsappNumero}` : "—";
-    document.getElementById("cfg-envio-gratis").value = cfg.envioGratisDesde || "";
+    document.getElementById("cfg-envio-gratis").value = cfg.envioGratisDesde ? Number(cfg.envioGratisDesde).toLocaleString("es-AR") : "";
     document.getElementById("cfg-alias-cbu").value = cfg.aliasCbu || "";
     document.getElementById("cfg-notificar-pedidos").checked = cfg.notificarPedidoNuevo !== false;
     document.getElementById("cfg-email-contacto").value = cfg.emailContacto || "";
@@ -4602,7 +4611,7 @@ function initConfigAdminListenersOnce() {
         bannerTitulo: document.getElementById("cfg-banner-titulo").value.trim(),
         bannerSubtitulo: document.getElementById("cfg-banner-subtitulo").value.trim(),
         whatsappNumero: normalizarWhatsapp(document.getElementById("cfg-whatsapp").value),
-        envioGratisDesde: Number(document.getElementById("cfg-envio-gratis").value) || 0,
+        envioGratisDesde: numMiles(document.getElementById("cfg-envio-gratis")),
         aliasCbu: document.getElementById("cfg-alias-cbu").value.trim(),
         notificarPedidoNuevo: document.getElementById("cfg-notificar-pedidos").checked,
         emailContacto: document.getElementById("cfg-email-contacto").value.trim(),
