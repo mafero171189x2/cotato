@@ -192,3 +192,34 @@ export async function enviarEmailErrorWorker(env, detalle) {
     return false;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Mail de bienvenida — se manda solo al crear una cuenta de cliente nueva.
+// ---------------------------------------------------------------------------
+export async function enviarEmailBienvenida(env, destinatarioEmail, nombreCliente) {
+  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) return false;
+  try {
+    await WorkerMailer.send(
+      {
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        authType: "login",
+        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
+      },
+      {
+        from: { name: "COTATO", email: env.GMAIL_USER },
+        to: destinatarioEmail,
+        subject: "¡Bienvenido/a a COTATO!",
+        html: `
+          <p>Hola${nombreCliente ? " " + nombreCliente : ""},</p>
+          <p>Tu cuenta en COTATO ya está lista. Desde "Mi cuenta" podés ver tus pedidos, tus datos y tus favoritos.</p>
+        `
+      }
+    );
+    return true;
+  } catch (err) {
+    console.error("No se pudo enviar el mail de bienvenida:", err);
+    return false;
+  }
+}
