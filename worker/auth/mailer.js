@@ -149,3 +149,46 @@ export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido
     return false;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Alerta de error inesperado — se dispara sola desde el catch-all de
+// worker/index.js, no requiere que nadie la llame a mano. Sirve para
+// enterarte de un problema real sin tener que estar mirando los logs.
+// No se manda para errores esperados (401, 404, etc.), solo para excepciones
+// de verdad (bugs, timeouts, fallas de la base).
+// ---------------------------------------------------------------------------
+let _ultimoAvisoError = 0;
+export async function enviarEmailErrorWorker(env, detalle) {
+  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) return false;
+  // Como mucho un mail cada 10 minutos — si algo se rompe en loop, no te
+  // inunda la casilla, pero te enterás igual del primer error.
+  const ahora = Date.now();
+  if (ahora - _ultimoAvisoError < 10 * 60 * 1000) return false;
+  _ultimoAvisoError = ahora;
+  try {
+    await WorkerMailer.send(
+      {
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        authType: "login",
+        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
+      },
+      {
+        from: { name: "COTATO — Alertas", email: env.GMAIL_USER },
+        to: env.GMAIL_USER,
+        subject: `⚠️ Error en COTATO: ${detalle.mensaje}`,
+        html: `
+          <p>Se produjo un error inesperado en el Worker.</p>
+          <p><strong>Ruta:</strong> ${detalle.metodo} ${detalle.url}<br>
+          <strong>Error:</strong> ${detalle.mensaje}</p>
+          <p style="color:#888">Si esto se repite seguido, avisá a quien te ayudó a armar la tienda.</p>
+        `
+      }
+    );
+    return true;
+  } catch (err) {
+    console.error("No se pudo enviar la alerta de error:", err);
+    return false;
+  }
+}
