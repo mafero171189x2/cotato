@@ -2,7 +2,7 @@ import { hashPassword, verifyPassword, firmarJWT, cookieSesion, cookieBorrar } f
 import { obtenerSesion, requiereCliente, jsonError, json, leerJson, texto } from "../auth/middleware.js";
 import { exigirLimite, registrarFallo, limpiarLimite, limitesLogin, ipDe } from "../auth/ratelimit.js";
 import { mapCliente, uuid } from "../database/mappers.js";
-import { enviarEmailReset } from "../auth/mailer.js";
+import { enviarEmailReset, enviarEmailBienvenida } from "../auth/mailer.js";
 
 const DURACION_SESION = 60 * 60 * 24 * 30; // 30 días
 const MIN_PASSWORD = 8;
@@ -82,6 +82,11 @@ export async function handleAuth(request, env, url) {
 
     const token = await firmarSesion(env, { uid: id, email: emailNorm, tipo: "cliente", tv: 0 });
     const row = await env.DB.prepare("SELECT * FROM clientes WHERE id = ?").bind(id).first();
+    try {
+      await enviarEmailBienvenida(env, emailNorm, texto(datos.nombre, 80));
+    } catch (err) {
+      console.error("No se pudo enviar el mail de bienvenida:", err);
+    }
     return json({ cliente: mapCliente(row), token }, 201, { "Set-Cookie": cookieSesion("sesion", token, DURACION_SESION) });
   }
 
