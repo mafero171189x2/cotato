@@ -431,6 +431,20 @@
   /* ------------------------------------------------------------------ */
   const estado = { esperandoProvincia: false, ultimaBusqueda: "" };
 
+  /** "¿Quién sos?" / "¿Sos una IA?" etc. — respuesta corta y SIEMPRE igual,
+   *  sin pasar por Gemini (para no depender del humor del modelo) ni por el
+   *  buscador de productos (para que no lo confunda con una búsqueda). */
+  function respuestaIdentidad(texto) {
+    const t = normalizar(texto);
+    const esPregunta = contieneAlguna(t, [
+      "quien sos", "que sos", "quien eres", "que eres",
+      "eres una ia", "sos una ia", "sos un bot", "eres un bot", "sos un robot", "eres un robot",
+      "sos humano", "eres humano", "con quien hablo", "con quien estoy hablando"
+    ]);
+    if (!esPregunta) return null;
+    return { html: `Soy el asistente virtual de ${esc(nombreTienda())}. Estoy para ayudarte.` };
+  }
+
   function responder(mensajeOriginal) {
     const t = normalizar(mensajeOriginal);
 
@@ -439,6 +453,10 @@
     if (!puente()) {
       return { html: `No puedo acceder al catálogo en este momento. Escribinos por WhatsApp y te respondemos enseguida.`, whatsapp: true };
     }
+
+    // "¿Quién sos?" tiene prioridad sobre todo lo demás.
+    const identidad = respuestaIdentidad(mensajeOriginal);
+    if (identidad) return identidad;
 
     // Si veníamos esperando una provincia (después de preguntar por envío)
     if (estado.esperandoProvincia) {
@@ -848,10 +866,11 @@
     agregarMensaje(esc(texto), "user");
     mostrarEscribiendo();
 
-    let r = null;
+    let r = respuestaIdentidad(texto);
+    if (r) await new Promise((res) => setTimeout(res, 300));
 
     // 1) Primero se intenta la IA (charla fluida, entiende cualquier frase).
-    if (IA.activa && IA.disponible && puente()) {
+    if (!r && IA.activa && IA.disponible && puente()) {
       try {
         r = await responderConIA(texto);
       } catch (e) {
