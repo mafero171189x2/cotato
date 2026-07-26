@@ -385,17 +385,18 @@
     const css = `
     #cotato-ag-btn {
       position: fixed; right: 18px; bottom: 18px; z-index: 9998;
-      width: 58px; height: 58px; border-radius: 999px; border: none; cursor: pointer;
+      width: 46px; height: 46px; border-radius: 999px; border: none; cursor: pointer;
       background: var(--btn-fondo, #D2A362); color: var(--btn-texto, #14110F);
-      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+      box-shadow: 0 8px 20px rgba(0,0,0,.25);
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px; transition: transform .15s ease;
+      padding: 0; transition: transform .15s ease;
     }
+    #cotato-ag-btn svg { width: 24px; height: 24px; display: block; }
     #cotato-ag-btn:hover { transform: scale(1.06); }
     #cotato-ag-btn .cotato-ag-badge {
-      position: absolute; top: -2px; right: -2px; background: var(--vino, #B04A5F);
-      color: #fff; font-size: 10px; font-weight: 800; border-radius: 999px;
-      width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+      position: absolute; top: -1px; right: -1px; background: var(--vino, #B04A5F);
+      color: #fff; font-size: 9px; font-weight: 800; border-radius: 999px;
+      width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;
     }
     #cotato-ag-panel {
       position: fixed; right: 18px; bottom: 88px; z-index: 9999;
@@ -472,12 +473,29 @@
     document.head.appendChild(style);
   }
 
+  /* Ícono de robot dibujado a mano en el mismo estilo que los íconos Lucide
+     que ya usa el sitio (trazo de 2px, puntas redondeadas). Va inline como
+     SVG para no depender de que lucide.createIcons() corra después. */
+  const ICONO_ROBOT = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 5V3"></path>
+      <circle cx="12" cy="3" r="1"></circle>
+      <rect x="4" y="7" width="16" height="12" rx="3"></rect>
+      <path d="M2 12v3"></path>
+      <path d="M22 12v3"></path>
+      <circle cx="9" cy="12" r="1.15" fill="currentColor" stroke="none"></circle>
+      <circle cx="15" cy="12" r="1.15" fill="currentColor" stroke="none"></circle>
+      <path d="M9.5 15.6h5"></path>
+    </svg>`;
+
   function inyectarMarkup() {
     const btn = document.createElement("button");
     btn.id = "cotato-ag-btn";
     btn.type = "button";
     btn.setAttribute("aria-label", "Abrir asistente virtual");
-    btn.innerHTML = `💬<span class="cotato-ag-badge" id="cotato-ag-badge" style="display:none">1</span>`;
+    btn.setAttribute("title", "Asistente virtual");
+    btn.innerHTML = `${ICONO_ROBOT}<span class="cotato-ag-badge" id="cotato-ag-badge" style="display:none">1</span>`;
     document.body.appendChild(btn);
 
     const panel = document.createElement("div");
