@@ -25,6 +25,7 @@
    ========================================================================== */
 
 import { jsonError, json, requiereAdmin } from "../auth/middleware.js";
+import { avisarSiModeloRoto } from "./alerta-modelo.js";
 
 const MODELO_GEMINI = "gemini-3.5-flash-lite";
 const GEMINI_URL = (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
@@ -254,6 +255,7 @@ async function pedirAGemini(env, prompt, maxTokens = 700) {
   });
   if (!res.ok) {
     console.error("Gemini análisis", res.status, (await res.text().catch(() => "")).slice(0, 300));
+    await avisarSiModeloRoto(env, res, "panel admin — análisis del negocio (admin-analisis.js)");
     throw new Error("gemini");
   }
   const data = await res.json().catch(() => null);
