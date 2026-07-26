@@ -4723,6 +4723,35 @@ function initTema() {
 
 initTema();
 initGlobal();
+
+/* ---------------------------------------------------------------------- */
+/* PUENTE PARA EL ASISTENTE VIRTUAL (agente-cotato.js)                    */
+/* ---------------------------------------------------------------------- */
+/* Este script es un <script type="module">, así que TODO lo que se declara
+ * acá adentro (TODOS_PRODUCTOS, CONFIG, Carrito, etc.) es invisible desde
+ * cualquier archivo externo. Para que el asistente pueda leer el catálogo
+ * REAL sin duplicar lógica ni inventar datos, se publica acá una puerta de
+ * entrada de SOLO LECTURA con lo justo que necesita.
+ *
+ * Se usan funciones (no valores fijos) a propósito: así el asistente ve
+ * siempre el estado actual, incluso si el catálogo se revalida después. */
+window.COTATO_AGENTE = {
+  productos:        () => TODOS_PRODUCTOS,
+  categorias:       () => CATEGORIAS_CACHE,
+  config:           () => CONFIG,
+  provincias:       () => PROVINCIAS_AR,
+  formatearPrecio,
+  precioFinal,
+  optimizarImagenUrl,
+  escapeHTML,
+  linkWhatsApp,
+  calcularEnvio,
+  mostrarToast,
+  agregarAlCarrito: (p, cant = 1) => Carrito.agregar(p, cant),
+  irAProducto:      (id) => { location.hash = "#/producto/" + id; }
+};
+/* Avisa al asistente que ya puede leer datos (por si cargó antes que esto). */
+document.dispatchEvent(new CustomEvent("cotato:agente-listo"));
 </script>
 
 <!-- Asistente virtual COTATO: se inyecta solo (botón flotante + chat). Ver agente-cotato.js -->
