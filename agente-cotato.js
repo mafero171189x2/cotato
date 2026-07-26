@@ -414,8 +414,11 @@
         <div class="cotato-ag-prod-precio">${precio(p)}</div>
         <div class="cotato-ag-prod-stock ${sinStock ? "sin-stock" : ""}">${sinStock ? "Sin stock" : (p.stock <= 5 ? `¡Últimas ${esc(p.stock)}!` : "Stock disponible")}</div>
         <div class="cotato-ag-prod-acciones">
-          <button type="button" class="cotato-ag-btn-ver" data-ver="${esc(p.id)}">Ver detalle</button>
-          <button type="button" class="cotato-ag-btn-add" data-add="${esc(p.id)}" ${sinStock ? "disabled" : ""}>${sinStock ? "Sin stock" : "Agregar"}</button>
+          <button type="button" class="cotato-ag-btn-ver" data-ver="${esc(p.id)}">Ver</button>
+          ${sinStock
+            ? `<button type="button" class="cotato-ag-btn-similares" data-similares="${esc(p.id)}">Ver similares</button>`
+            : `<button type="button" class="cotato-ag-btn-add" data-add="${esc(p.id)}">Agregar</button>
+               <button type="button" class="cotato-ag-btn-comprar" data-comprar="${esc(p.id)}">Comprar</button>`}
         </div>
       </div>
     </div>`;
@@ -424,6 +427,25 @@
   function bloqueProductosHTML(lista) {
     if (!lista.length) return "";
     return `<div class="cotato-ag-prod-lista">${lista.map(tarjetaProductoHTML).join("")}</div>`;
+  }
+
+  /** Alternativas para un producto sin stock: primero de la misma categoría,
+   *  y si no alcanza, se completa con lo más parecido por precio. */
+  function alternativasPara(p, limite = 3) {
+    const b = puente();
+    const precioDe = (x) => (b && typeof b.precioFinal === "function") ? b.precioFinal(x) : Number(x.precio) || 0;
+    const conStock = activos().filter((x) => x.id !== p.id && x.stock > 0);
+
+    const mismaCat = conStock.filter((x) => normalizar(x.categoria) === normalizar(p.categoria));
+    // Se ordenan por cercanía de precio: lo más parecido a lo que quería.
+    const porPrecio = (lista) => [...lista].sort((a, c) => Math.abs(precioDe(a) - precioDe(p)) - Math.abs(precioDe(c) - precioDe(p)));
+
+    const elegidos = porPrecio(mismaCat).slice(0, limite);
+    if (elegidos.length < limite) {
+      const resto = porPrecio(conStock.filter((x) => !elegidos.some((e) => e.id === x.id)));
+      elegidos.push(...resto.slice(0, limite - elegidos.length));
+    }
+    return elegidos;
   }
 
   /* ------------------------------------------------------------------ */
@@ -568,6 +590,21 @@
       const resultados = buscarProductos(mensajeOriginal, 5);
       if (resultados.length) {
         estado.ultimaBusqueda = mensajeOriginal;
+
+        // Si TODO lo encontrado está sin stock, se ofrecen alternativas reales
+        // en el mismo mensaje, en vez de dejar al cliente en un callejón.
+        const todosSinStock = resultados.every((p) => p.stock <= 0);
+        if (todosSinStock) {
+          const alt = alternativasPara(resultados[0], 3);
+          const intro = resultados.length === 1
+            ? `${esc(resultados[0].nombre)} está sin stock por ahora.`
+            : `Lo que encontré está sin stock por ahora.`;
+          if (alt.length) {
+            return { html: `${intro} Estas sí tienen stock y son parecidas:`, extra: bloqueProductosHTML(alt) };
+          }
+          return { html: `${intro} Escribinos por WhatsApp y te avisamos cuando repongamos.`, whatsapp: true };
+        }
+
         const intro = resultados.length === 1
           ? `Encontré esto en ${esc(nombreTienda())}:`
           : `Encontré estas opciones en ${esc(nombreTienda())}:`;
@@ -690,6 +727,16 @@
       font-family: 'Karla', system-ui, sans-serif;
     }
     #cotato-ag-panel.abierto { display: flex; }
+
+    /* En celulares el panel ocupa casi toda la pantalla: más cómodo para
+       leer y escribir. Se usa dvh (no vh) porque vh en mobile incluye la
+       barra del navegador y el panel terminaba cortado abajo. */
+    @media (max-width: 520px) {
+      #cotato-ag-panel {
+        right: 10px; left: 10px; bottom: 76px;
+        width: auto; height: min(74dvh, calc(100dvh - 150px));
+      }
+    }
     #cotato-ag-head {
       padding: 14px 16px; background: var(--elevado, #282320);
       border-bottom: 1px solid var(--borde, #352E29);
@@ -724,18 +771,44 @@
     .cotato-ag-prod-stock { font-size: .68rem; color: #4ade80; margin-top: 1px; }
     .cotato-ag-prod-stock.sin-stock { color: #f87171; }
     .cotato-ag-prod-acciones { display: flex; gap: 6px; margin-top: 6px; }
-    .cotato-ag-btn-ver, .cotato-ag-btn-add {
-      font-size: .7rem; font-weight: 700; padding: 5px 8px; border-radius: 8px; cursor: pointer; border: 1px solid var(--borde, #352E29);
-      background: transparent; color: var(--texto, #F2EDE5);
-    }
-    .cotato-ag-btn-add { background: var(--btn-fondo, #D2A362); color: var(--btn-texto, #14110F); border: none; }
-    .cotato-ag-btn-add[disabled] { opacity: .4; cursor: default; }
     .cotato-ag-comp-wrap { overflow-x: auto; margin-top: 6px; border: 1px solid var(--borde, #352E29); border-radius: 10px; }
     .cotato-ag-comp { width: 100%; border-collapse: collapse; font-size: .72rem; }
     .cotato-ag-comp th, .cotato-ag-comp td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--borde, #352E29); vertical-align: top; }
     .cotato-ag-comp thead th { background: var(--elevado-2, #322C27); font-weight: 700; font-size: .7rem; }
     .cotato-ag-comp tbody tr:last-child td { border-bottom: none; }
     .cotato-ag-comp-lbl { color: var(--humo, #9A9188); font-weight: 600; white-space: nowrap; }
+    .cotato-ag-prod-acciones { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+    .cotato-ag-btn-ver, .cotato-ag-btn-add, .cotato-ag-btn-comprar, .cotato-ag-btn-similares {
+      font-size: .68rem; font-weight: 700; padding: 5px 9px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--borde, #352E29); background: transparent; color: var(--texto, #F2EDE5);
+      min-height: 30px;
+    }
+    .cotato-ag-btn-add { background: rgba(210,163,98,.14); border-color: var(--btn-fondo, #D2A362); }
+    .cotato-ag-btn-comprar { background: var(--btn-fondo, #D2A362); color: var(--btn-texto, #14110F); border: none; }
+    .cotato-ag-btn-similares { border-color: var(--btn-fondo, #D2A362); color: var(--btn-fondo, #D2A362); }
+    .cotato-ag-btn-add[disabled] { opacity: .55; cursor: default; }
+
+    /* Botones dentro de un mensaje del bot (ej: "Ver carrito") */
+    .cotato-ag-acciones-msg { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .cotato-ag-btn-carrito, .cotato-ag-btn-seguir {
+      font-size: .74rem; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+      border: 1px solid var(--borde, #352E29); background: transparent; color: var(--texto, #F2EDE5);
+    }
+    .cotato-ag-btn-carrito { background: var(--btn-fondo, #D2A362); color: var(--btn-texto, #14110F); border: none; }
+
+    /* Botón de reiniciar en el encabezado */
+    #cotato-ag-reiniciar {
+      background: none; border: none; color: var(--humo, #9A9188); cursor: pointer;
+      font-size: 17px; line-height: 1; padding: 4px 6px; border-radius: 6px;
+    }
+    #cotato-ag-reiniciar:hover { color: var(--texto, #F2EDE5); }
+
+    /* Indicador de escribiendo, con texto de estado si la espera se alarga */
+    .cotato-ag-typing em {
+      font-style: normal; font-size: .7rem; color: var(--humo, #9A9188);
+      margin-left: 4px; vertical-align: 1px;
+    }
+
     #cotato-ag-chips { display: flex; gap: 6px; padding: 0 14px 10px; flex-wrap: wrap; flex-shrink: 0; }
     .cotato-ag-chip {
       font-size: .72rem; background: var(--elevado, #282320); border: 1px solid var(--borde, #352E29);
@@ -788,15 +861,21 @@
 
     const panel = document.createElement("div");
     panel.id = "cotato-ag-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "false");
+    panel.setAttribute("aria-label", `Asistente virtual de ${nombreTienda()}`);
     panel.innerHTML = `
       <div id="cotato-ag-head">
         <div>
           <strong>Asistente ${esc(nombreTienda())}</strong>
           <span>Respuestas al instante</span>
         </div>
-        <button type="button" id="cotato-ag-cerrar" aria-label="Cerrar">✕</button>
+        <div style="display:flex;gap:2px;align-items:center">
+          <button type="button" id="cotato-ag-reiniciar" aria-label="Empezar conversación de nuevo" title="Empezar de nuevo">⟲</button>
+          <button type="button" id="cotato-ag-cerrar" aria-label="Cerrar asistente">✕</button>
+        </div>
       </div>
-      <div id="cotato-ag-msgs"></div>
+      <div id="cotato-ag-msgs" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación con el asistente"></div>
       <div id="cotato-ag-chips">
         <button type="button" class="cotato-ag-chip" data-chip="Ver ofertas">🔥 Ofertas</button>
         <button type="button" class="cotato-ag-chip" data-chip="Costos de envío">🚚 Envíos</button>
@@ -827,19 +906,92 @@
     cont.appendChild(fila);
     cont.scrollTop = cont.scrollHeight;
     bindAccionesProducto(fila);
+    guardarHistorial();
   }
+
+  /* El indicador de "escribiendo" ahora refleja la espera REAL. Con Gemini
+   * la respuesta puede tardar varios segundos: si solo se ven tres puntitos
+   * quietos, parece colgado. A los 2,5s pasa a decir que está pensando, y a
+   * los 7s avisa que está tardando, para que el cliente no crea que se rompió. */
+  let _typingTimers = [];
 
   function mostrarEscribiendo() {
     const cont = document.getElementById("cotato-ag-msgs");
     const fila = document.createElement("div");
     fila.className = "cotato-ag-fila bot";
     fila.id = "cotato-ag-typing-row";
-    fila.innerHTML = `<div class="cotato-ag-bubble cotato-ag-typing"><span></span><span></span><span></span></div>`;
+    fila.innerHTML = `<div class="cotato-ag-bubble cotato-ag-typing" aria-label="El asistente está escribiendo">
+      <span></span><span></span><span></span>
+      <em id="cotato-ag-typing-txt"></em>
+    </div>`;
     cont.appendChild(fila);
     cont.scrollTop = cont.scrollHeight;
+
+    const decir = (txt) => {
+      const el = document.getElementById("cotato-ag-typing-txt");
+      if (el) { el.textContent = txt; document.getElementById("cotato-ag-msgs").scrollTop = 9e9; }
+    };
+    _typingTimers = [
+      setTimeout(() => decir("buscando en el catálogo…"), 2500),
+      setTimeout(() => decir("un segundito más…"), 7000)
+    ];
   }
+
   function quitarEscribiendo() {
+    _typingTimers.forEach(clearTimeout);
+    _typingTimers = [];
     document.getElementById("cotato-ag-typing-row")?.remove();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 6.b) PERSISTENCIA DE LA CHARLA                                      */
+  /*      El sitio navega por hash (#/producto/..), así que la página no  */
+  /*      se recarga — pero si el cliente refresca o vuelve más tarde,    */
+  /*      la charla se recupera. sessionStorage: dura lo que la pestaña,  */
+  /*      no queda guardado para siempre en el dispositivo.               */
+  /* ------------------------------------------------------------------ */
+  const HISTORIAL_KEY = "cotato_ag_chat";
+  const MAX_GUARDADOS = 30;
+
+  function guardarHistorial() {
+    try {
+      const filas = [...document.querySelectorAll("#cotato-ag-msgs .cotato-ag-fila")]
+        .filter((f) => f.id !== "cotato-ag-typing-row")
+        .slice(-MAX_GUARDADOS)
+        .map((f) => ({
+          quien: f.classList.contains("user") ? "user" : "bot",
+          html: f.querySelector(".cotato-ag-bubble")?.innerHTML || ""
+        }));
+      sessionStorage.setItem(HISTORIAL_KEY, JSON.stringify({ filas, ia: IA.historial.slice(-6) }));
+    } catch (e) { /* si el navegador no deja, simplemente no se guarda */ }
+  }
+
+  function restaurarHistorial() {
+    try {
+      const raw = sessionStorage.getItem(HISTORIAL_KEY);
+      if (!raw) return false;
+      const { filas, ia } = JSON.parse(raw);
+      if (!Array.isArray(filas) || !filas.length) return false;
+
+      const cont = document.getElementById("cotato-ag-msgs");
+      filas.forEach((f) => {
+        const fila = document.createElement("div");
+        fila.className = "cotato-ag-fila " + (f.quien === "user" ? "user" : "bot");
+        fila.innerHTML = `<div class="cotato-ag-bubble">${f.html}</div>`;
+        cont.appendChild(fila);
+        bindAccionesProducto(fila);   // los botones vuelven a funcionar
+      });
+      if (Array.isArray(ia)) IA.historial = ia;
+      cont.scrollTop = cont.scrollHeight;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function borrarHistorial() {
+    try { sessionStorage.removeItem(HISTORIAL_KEY); } catch (e) {}
+    IA.historial = [];
+    const cont = document.getElementById("cotato-ag-msgs");
+    if (cont) cont.innerHTML = "";
   }
 
   function bindAccionesProducto(cont) {
@@ -849,15 +1001,62 @@
       else location.hash = "#/producto/" + btn.dataset.ver;
       cerrarPanel();
     }));
+
+    // Agregar al carrito: confirma en el chat y ofrece ir al carrito.
     cont.querySelectorAll("[data-add]").forEach((btn) => btn.addEventListener("click", () => {
       if (btn.disabled) return;
       const p = productos().find((x) => x.id === btn.dataset.add);
       const b = puente();
       if (!p || !b || typeof b.agregarAlCarrito !== "function") return;
       b.agregarAlCarrito(p, 1);
-      if (typeof b.mostrarToast === "function") b.mostrarToast("Agregado al carrito", "success");
-      btn.textContent = "✓ Agregado";
-      setTimeout(() => (btn.textContent = "Agregar"), 1400);
+      btn.textContent = "✓";
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = "Agregar"; btn.disabled = false; }, 1800);
+      agregarMensaje(
+        `Agregué <strong>${esc(p.nombre)}</strong> a tu carrito.`,
+        "bot",
+        `<div class="cotato-ag-acciones-msg">
+           <button type="button" class="cotato-ag-btn-carrito" data-abrir-carrito="1">Ver carrito</button>
+           <button type="button" class="cotato-ag-btn-seguir" data-seguir="1">Seguir viendo</button>
+         </div>`
+      );
+    }));
+
+    // Comprar ahora: agrega y abre el checkout directo.
+    cont.querySelectorAll("[data-comprar]").forEach((btn) => btn.addEventListener("click", () => {
+      const p = productos().find((x) => x.id === btn.dataset.comprar);
+      const b = puente();
+      if (!p || !b || typeof b.agregarAlCarrito !== "function") return;
+      b.agregarAlCarrito(p, 1);
+      if (typeof b.abrirCheckout === "function") {
+        cerrarPanel();
+        b.abrirCheckout();
+      } else if (typeof b.abrirCarrito === "function") {
+        cerrarPanel();
+        b.abrirCarrito();
+      }
+    }));
+
+    // Sin stock: mostrar alternativas reales con stock.
+    cont.querySelectorAll("[data-similares]").forEach((btn) => btn.addEventListener("click", () => {
+      const p = productos().find((x) => x.id === btn.dataset.similares);
+      if (!p) return;
+      const alt = alternativasPara(p, 3);
+      if (!alt.length) {
+        agregarMensaje(`Por ahora no tengo otras opciones con stock. Escribinos por WhatsApp y te avisamos cuando repongamos.`, "bot", "", true);
+        return;
+      }
+      agregarMensaje(`Estas tienen stock ahora y son parecidas a ${esc(p.nombre)}:`, "bot", bloqueProductosHTML(alt));
+    }));
+
+    // Botones de los mensajes de confirmación.
+    cont.querySelectorAll("[data-abrir-carrito]").forEach((btn) => btn.addEventListener("click", () => {
+      const b = puente();
+      if (b && typeof b.abrirCarrito === "function") { cerrarPanel(); b.abrirCarrito(); }
+    }));
+    cont.querySelectorAll("[data-seguir]").forEach((btn) => btn.addEventListener("click", () => {
+      btn.closest(".cotato-ag-acciones-msg")?.remove();
+      document.getElementById("cotato-ag-input")?.focus();
     }));
   }
 
@@ -891,6 +1090,43 @@
     agregarMensaje(r.html, "bot", r.extra, r.whatsapp);
   }
 
+  /* ------------------------------------------------------------------ */
+  /* 6.c) TECLADO EN CELULARES                                           */
+  /*      Cuando se abre el teclado virtual, el navegador NO achica la    */
+  /*      ventana: el panel sigue "midiendo" lo mismo y el campo de       */
+  /*      escritura queda tapado abajo. visualViewport sí informa el alto */
+  /*      real visible, así que se usa para reajustar el panel en vivo.   */
+  /* ------------------------------------------------------------------ */
+  function initTecladoMovil() {
+    const vv = window.visualViewport;
+    if (!vv) return;   // navegadores viejos: se queda con el CSS de siempre
+
+    const panel = document.getElementById("cotato-ag-panel");
+    if (!panel) return;
+
+    const ajustar = () => {
+      if (!panel.classList.contains("abierto")) return;
+      // Cuánto del alto de la ventana se está comiendo el teclado.
+      const tapado = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      if (tapado > 100) {
+        // Teclado abierto: el panel se apoya justo encima de él.
+        panel.style.bottom = `${tapado + 8}px`;
+        panel.style.height = `${Math.max(260, vv.height - 96)}px`;
+      } else {
+        // Teclado cerrado: vuelve a los valores del CSS.
+        panel.style.bottom = "";
+        panel.style.height = "";
+      }
+      // Que el último mensaje quede siempre a la vista.
+      const msgs = document.getElementById("cotato-ag-msgs");
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    };
+
+    vv.addEventListener("resize", ajustar);
+    vv.addEventListener("scroll", ajustar);
+    document.getElementById("cotato-ag-input")?.addEventListener("focus", () => setTimeout(ajustar, 250));
+  }
+
   function abrirPanel() {
     document.getElementById("cotato-ag-panel").classList.add("abierto");
     document.getElementById("cotato-ag-badge").style.display = "none";
@@ -907,6 +1143,13 @@
       panel.classList.contains("abierto") ? cerrarPanel() : abrirPanel();
     });
     document.getElementById("cotato-ag-cerrar").addEventListener("click", cerrarPanel);
+    document.getElementById("cotato-ag-reiniciar").addEventListener("click", () => {
+      borrarHistorial();
+      estado.esperandoProvincia = false;
+      estado.ultimaBusqueda = "";
+      mensajeBienvenida();
+      document.getElementById("cotato-ag-input")?.focus();
+    });
     document.getElementById("cotato-ag-form").addEventListener("submit", (e) => {
       e.preventDefault();
       const input = document.getElementById("cotato-ag-input");
@@ -933,7 +1176,9 @@
     inyectarEstilos();
     inyectarMarkup();
     initListeners();
-    mensajeBienvenida();
+    initTecladoMovil();
+    // Si el cliente ya venía charlando en esta pestaña, se retoma donde quedó.
+    if (!restaurarHistorial()) mensajeBienvenida();
   }
 
   if (document.readyState === "loading") {
