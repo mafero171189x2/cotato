@@ -312,6 +312,34 @@
 .ia-estado-error{ color: #f87171; }
 .ia-estado-load { color: var(--laton); }
 
+.ia-panel {
+  background: rgba(210,163,98,.05); border: 1px solid var(--borde);
+  border-radius: 14px; padding: 1.1rem;
+}
+.ia-respuesta {
+  background: var(--superficie); border-left: 3px solid var(--laton);
+  border-radius: 8px; padding: .85rem 1rem; line-height: 1.6; white-space: pre-wrap;
+}
+.ia-metricas {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: .5rem; margin-top: .75rem;
+}
+.ia-metrica {
+  background: var(--superficie); border: 1px solid var(--borde);
+  border-radius: 8px; padding: .5rem .7rem;
+}
+.ia-metrica-label { font-size: .62rem; text-transform: uppercase; color: var(--humo); letter-spacing: .04em; }
+.ia-metrica-valor { font-size: 1.05rem; font-weight: 700; color: var(--texto); }
+.ia-lista { margin-top: .75rem; font-size: .8rem; }
+.ia-lista li { padding: .3rem 0; border-bottom: 1px solid var(--borde); }
+.ia-lista li:last-child { border-bottom: none; }
+.ia-tag {
+  display: inline-block; font-size: .6rem; font-weight: 700; text-transform: uppercase;
+  padding: .1rem .4rem; border-radius: 4px; margin-right: .4rem;
+  background: rgba(210,163,98,.2); color: var(--laton);
+}
+.ia-tag.alerta { background: rgba(176,74,95,.22); color: #e08a9c; }
+
 /* ==== Pantalla de carga inicial — versión estética ==== */
   #carga-inicial {
     /* Fondo OPACO: tiene que tapar el header y el footer mientras carga. */
@@ -962,6 +990,29 @@ img { display: block; max-width: 100%; }
       <div class="admin-seccion" id="seccion-resumen">
         <h1 class="text-2xl font-bold mb-6">Resumen</h1>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stat-cards"></div>
+
+        <!-- ANÁLISIS CON IA -->
+        <div class="ia-panel mt-8">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <h2 class="font-semibold text-sm flex items-center gap-2" style="color:var(--laton)">
+              <i data-lucide="sparkles" style="width:15px;height:15px"></i> Analizar mi negocio
+            </h2>
+            <span class="text-xs text-gray-500" id="ia-analisis-periodo"></span>
+          </div>
+
+          <div class="flex gap-2 flex-wrap mb-3">
+            <button type="button" class="ia-btn" data-analisis="resumen">Resumen del período</button>
+            <button type="button" class="ia-btn" data-analisis="reposicion">¿Qué repongo?</button>
+            <button type="button" class="ia-btn" data-analisis="revisar">Pedidos a revisar</button>
+          </div>
+
+          <div class="flex gap-2 mb-3">
+            <input type="text" id="ia-analisis-pregunta" placeholder="Preguntá lo que quieras: ¿qué categoría vendió más?" class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3.5 py-2 text-sm">
+            <button type="button" id="btn-ia-preguntar" class="ia-btn">Preguntar</button>
+          </div>
+
+          <div id="ia-analisis-salida" class="text-sm" style="display:none"></div>
+        </div>
       </div>
 
       <!-- PRODUCTOS -->
@@ -4152,6 +4203,142 @@ async function pedirIA(cuerpo, { boton, estado, textoCargando }) {
   }
 }
 
+/* ---------------------------------------------------------------------- */
+/* 15.c) ADMIN: ANÁLISIS DEL NEGOCIO CON IA                               */
+/* ---------------------------------------------------------------------- */
+/* Manda al Worker los pedidos y productos que el panel YA tiene cargados,
+ * y el Worker calcula las métricas (en JavaScript, no con la IA) y le pide
+ * a Gemini que las interprete en lenguaje natural.
+ *
+ * Por qué así: los modelos de lenguaje son malos sumando y pueden "alucinar"
+ * una cifra convincente pero falsa. Los números salen de código determinista;
+ * la IA solo redacta. Si Gemini falla, se muestran igual las métricas. */
+
+function iaMetricasHTML(m) {
+  if (!m) return "";
+  const fmt = (n) => formatearPrecio(n);
+  const items = [
+    ["Pedidos", m.pedidos],
+    ["Facturado", fmt(m.facturado)],
+    ["Ticket promedio", fmt(m.ticketPromedio)],
+    ["Cancelados", m.cancelados]
+  ];
+  return `<div class="ia-metricas">${items.map(([l, v]) =>
+    `<div class="ia-metrica"><div class="ia-metrica-label">${l}</div><div class="ia-metrica-valor">${v}</div></div>`
+  ).join("")}</div>`;
+}
+
+function iaReposicionHTML(rep) {
+  if (!rep) return "";
+  const bloques = [];
+  if (rep.agotados?.length) {
+    bloques.push(`<ul class="ia-lista">${rep.agotados.map((r) =>
+      `<li><span class="ia-tag alerta">agotado</span>${escapeHTML(r.nombre)} — vendió ${r.unidadesVendidas} u.</li>`).join("")}</ul>`);
+  }
+  if (rep.urgentes?.length) {
+    bloques.push(`<ul class="ia-lista">${rep.urgentes.map((r) =>
+      `<li><span class="ia-tag">${r.diasRestantes} días</span>${escapeHTML(r.nombre)} — quedan ${r.stock} u. (vende ${r.porDia}/día)</li>`).join("")}</ul>`);
+  }
+  return bloques.join("");
+}
+
+function iaInusualesHTML(lista) {
+  if (!lista?.length) return `<p class="text-sm text-gray-500 mt-2">No encontré nada raro en los pedidos del período.</p>`;
+  const etiquetas = {
+    pedidos_repetidos: "repetidos",
+    monto_alto: "monto alto",
+    pendiente_viejo: "sin pagar",
+    datos_incompletos: "datos"
+  };
+  return `<ul class="ia-lista">${lista.map((s) =>
+    `<li><span class="ia-tag ${s.tipo === "datos_incompletos" ? "" : "alerta"}">${etiquetas[s.tipo] || s.tipo}</span>${escapeHTML(s.detalle)}</li>`
+  ).join("")}</ul>`;
+}
+
+function iaMostrarSalida(html) {
+  const cont = document.getElementById("ia-analisis-salida");
+  cont.innerHTML = html;
+  cont.style.display = "block";
+  lucide.createIcons();
+}
+
+/** Llama al análisis mandando los datos que el panel ya tiene en memoria. */
+async function pedirAnalisis(accion, extra = {}) {
+  const botones = document.querySelectorAll("[data-analisis], #btn-ia-preguntar");
+  botones.forEach((b) => (b.disabled = true));
+  iaMostrarSalida(`<p class="ia-estado-load text-sm">Analizando tus datos...</p>`);
+
+  try {
+    // Se mandan solo los campos necesarios, no el objeto entero: menos datos
+    // viajando y menos tokens consumidos.
+    const pedidos = pedidosAdminCache.map((p) => ({
+      numeroPedido: p.numeroPedido, estado: p.estado, fecha: p.fecha,
+      total: p.total, envio: p.envio,
+      cliente: { provincia: p.cliente?.provincia, telefono: p.cliente?.telefono, direccion: p.cliente?.direccion },
+      productos: (p.productos || []).map((i) => ({ productoId: i.productoId, nombre: i.nombre, cantidad: i.cantidad, precio: i.precio }))
+    }));
+    const productos = productosAdminCache.map((p) => ({
+      id: p.id, nombre: p.nombre, categoria: p.categoria, stock: p.stock, activo: p.activo
+    }));
+
+    return await api("/api/admin/analisis", {
+      method: "POST",
+      body: { accion, pedidos, productos, ...extra },
+      timeoutMs: 30000
+    });
+  } catch (e) {
+    console.error(e);
+    const msg = e?.message === "timeout" ? "Tardó demasiado. Probá de nuevo." : (e?.message || "No se pudo analizar.");
+    iaMostrarSalida(`<p class="ia-estado-error text-sm">${escapeHTML(msg)}</p>`);
+    return null;
+  } finally {
+    botones.forEach((b) => (b.disabled = false));
+  }
+}
+
+function initAnalisisAdminListenersOnce() {
+  document.querySelectorAll("[data-analisis]").forEach((btn) => btn.addEventListener("click", async () => {
+    const tipo = btn.dataset.analisis;
+
+    // "Pedidos a revisar" no necesita IA: son reglas explícitas, se resuelve
+    // con la misma llamada de resumen pero mostrando solo esa parte.
+    const accion = tipo === "revisar" ? "resumen" : tipo;
+    const r = await pedirAnalisis(accion);
+    if (!r) return;
+
+    if (tipo === "revisar") {
+      iaMostrarSalida(`<h3 class="font-semibold text-sm mb-2">Pedidos que conviene mirar</h3>${iaInusualesHTML(r.inusuales)}`);
+      return;
+    }
+
+    let html = "";
+    if (r.texto) html += `<div class="ia-respuesta">${escapeHTML(r.texto)}</div>`;
+    else if (r.error) html += `<p class="ia-estado-error text-sm mb-2">${escapeHTML(r.error)}</p>`;
+
+    if (tipo === "resumen") html += iaMetricasHTML(r.metricas);
+    if (tipo === "reposicion") html += iaReposicionHTML(r.reposicion);
+    iaMostrarSalida(html);
+  }));
+
+  const preguntar = async () => {
+    const input = document.getElementById("ia-analisis-pregunta");
+    const pregunta = input.value.trim();
+    if (!pregunta) return;
+    const r = await pedirAnalisis("preguntar", { pregunta });
+    if (!r) return;
+    let html = "";
+    if (r.texto) html += `<div class="ia-respuesta">${escapeHTML(r.texto)}</div>`;
+    else if (r.error) html += `<p class="ia-estado-error text-sm mb-2">${escapeHTML(r.error)}</p>`;
+    html += iaMetricasHTML(r.metricas);
+    iaMostrarSalida(html);
+  };
+
+  document.getElementById("btn-ia-preguntar")?.addEventListener("click", preguntar);
+  document.getElementById("ia-analisis-pregunta")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); preguntar(); }
+  });
+}
+
 function initIAAdminListenersOnce() {
   /* ---- Redactar descripción ---- */
   document.getElementById("btn-ia-descripcion")?.addEventListener("click", async () => {
@@ -4873,6 +5060,7 @@ async function initGlobal() {
   initCategoriasAdminListenersOnce();
   initProductosAdminListenersOnce();
   initIAAdminListenersOnce();
+  initAnalisisAdminListenersOnce();
   initPedidosAdminListenersOnce();
   initConfigAdminListenersOnce();
   initEnviosAdminListenersOnce();
