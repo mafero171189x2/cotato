@@ -4749,6 +4749,8 @@ window.COTATO_AGENTE = {
   mostrarToast,
   agregarAlCarrito: (p, cant = 1) => Carrito.agregar(p, cant),
   irAProducto:      (id) => { location.hash = "#/producto/" + id; },
+  abrirCarrito:     () => { abrirCart(); renderAvisoCuentaCarrito(); },
+  abrirCheckout:    () => abrirCheckout(),
   /* Para la capa de IA: el asistente le habla a NUESTRO Worker (que guarda
    * la clave de Gemini), nunca a Google directamente desde el navegador. */
   api
