@@ -281,7 +281,7 @@ export async function handleAdminAnalisis(request, env, url) {
   const accion = String(body.accion || "");
 
   if (!pedidos.length && accion !== "reposicion") {
-    return json({ texto: "Todavía no hay pedidos en el período que estás viendo, así que no puedo analizar nada. Probá cambiando el mes.", metricas: null });
+    return json({ texto: "No hay pedidos en el período seleccionado. Probá ampliándolo con el selector de arriba.", metricas: null });
   }
 
   try {
