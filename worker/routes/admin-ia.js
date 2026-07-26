@@ -122,6 +122,13 @@ Respondé ÚNICAMENTE con un objeto JSON válido, sin markdown ni texto alrededo
 }
 
 function promptWhatsapp(d) {
+  // El alias de pago SOLO se le pasa a la IA si el pedido está realmente
+  // pendiente de pago. Si se lo mandamos igual en un pedido cancelado o ya
+  // pagado, el modelo tiende a mencionarlo de todos modos (es un dato tan
+  // "presente" en el contexto que cuesta que lo ignore). Sacándolo de raíz
+  // cuando no aplica, es imposible que lo use por error.
+  const alias = d.estado === "pendiente" ? d.alias : "";
+
   return `${TONO_COTATO}
 
 Escribí un mensaje de WhatsApp para un cliente de COTATO sobre su pedido. Es de la tienda hacia el cliente.
@@ -132,16 +139,27 @@ Número de pedido: ${d.numeroPedido}
 Estado actual: ${d.estado}
 Productos: ${d.productos}
 Total con envío: $${d.total}
-${d.alias ? `Alias para transferir: ${d.alias}` : ""}
+${alias ? `Alias para transferir: ${alias}` : ""}
 ${d.esPrimeraCompra === true ? "Es su primera compra en la tienda." : ""}
 ${d.esPrimeraCompra === false ? `Ya hizo ${d.comprasPrevia} compra(s) antes.` : ""}
 
-REGLAS
+REGLA MÁS IMPORTANTE — EL ESTADO MANDA POR ENCIMA DE TODO LO DEMÁS
+El "Estado actual" de arriba es el único real. Nunca asumas que un pedido
+está pendiente de pago si el estado dice otra cosa, aunque el mensaje sea
+sobre un pedido o el cliente parezca interesado en comprar.
+
+QUÉ ESCRIBIR SEGÚN EL ESTADO (elegí la fila que corresponda)
+- "pendiente": pedile el comprobante de la transferencia. Si te pasé un alias, incluilo.
+- "pagado": confirmá que se registró el pago y que ya se está preparando. NO pidas ningún pago ni menciones alias.
+- "preparacion": contale que su pedido está en preparación. NO pidas pago ni menciones alias.
+- "enviado": avisale que ya salió el envío. NO pidas pago ni menciones alias.
+- "entregado": preguntale si lo recibió bien, en tono de cierre. NO pidas pago, NO menciones alias, NO lo invites a comprar de nuevo.
+- "cancelado": avisale con tono neutral y respetuoso que el pedido quedó cancelado, y que estás para lo que necesite. NO pidas pago, NO menciones alias, NO lo invites a completar la compra, NO insistas en que retome el pedido. Es un mensaje informativo, no una venta.
+
+OTRAS REGLAS
 - Un solo mensaje, listo para pegar en WhatsApp. Sin asteriscos de markdown, sin emojis salvo como mucho uno.
-- Si es su primera compra, dale una bienvenida breve y genuina (sin exagerar).
+- Si es su primera compra, dale una bienvenida breve y genuina (sin exagerar) — salvo que el estado sea "cancelado", ahí no corresponde dar la bienvenida.
 - Si ya compró antes, un tono más directo y cercano, como a alguien conocido — sin decir explícitamente "como ya sos cliente".
-- Si el estado es "pendiente" y hay alias, pedí el comprobante de transferencia con el alias.
-- Si el estado es "pagado", "preparacion" o "enviado", confirmá eso puntualmente, sin inventar plazos que no te di.
 - No inventes descuentos, promociones ni plazos de envío que no estén en los datos.
 - Máximo 4 oraciones.
 
