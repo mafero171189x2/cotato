@@ -7,6 +7,7 @@ import { handleConfig, handleCatalogo } from "./routes/config.js";
 import { handleAdmins } from "./routes/admins.js";
 import { handleAgente } from "./routes/agente.js"; // <-- NUEVO: asistente virtual (Gemini)
 import { handleAdminIA } from "./routes/admin-ia.js"; // <-- NUEVO: IA del panel admin
+import { handleAdminAnalisis } from "./routes/admin-analisis.js"; // <-- NUEVO: análisis de datos con IA
 import { jsonError } from "./auth/middleware.js";
 import { enviarEmailErrorWorker } from "./auth/mailer.js";
 
@@ -93,6 +94,8 @@ export default {
         response = await handleConfig(request, env, url);
       } else if (url.pathname === "/api/admin/ia") { // <-- NUEVO: IA del panel admin
         response = await handleAdminIA(request, env, url);
+      } else if (url.pathname === "/api/admin/analisis") { // <-- NUEVO: análisis de datos con IA
+        response = await handleAdminAnalisis(request, env, url);
       } else if (url.pathname.startsWith("/api/admins")) {
         response = await handleAdmins(request, env, url);
       } else if (url.pathname === "/api/agente") { // <-- NUEVO: asistente virtual (Gemini)
