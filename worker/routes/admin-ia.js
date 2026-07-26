@@ -22,6 +22,7 @@
    ========================================================================== */
 
 import { jsonError, json, requiereAdmin } from "../auth/middleware.js";
+import { avisarSiModeloRoto } from "./alerta-modelo.js";
 
 /* Mismo modelo que el asistente del cliente (Gemini 2.0 se dio de baja el
    1/6/2026). Se puede sobreescribir con la variable GEMINI_MODELO. */
@@ -196,6 +197,7 @@ async function pedirAGemini(env, prompt, { json = false, maxTokens = 500 } = {})
   if (!res.ok) {
     const detalle = await res.text().catch(() => "");
     console.error("Gemini admin error", res.status, detalle.slice(0, 300));
+    await avisarSiModeloRoto(env, res, "panel admin — generación de contenido (admin-ia.js)");
     throw new Error("gemini");
   }
 
