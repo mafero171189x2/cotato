@@ -17,12 +17,19 @@
    (Firestore, vía /api/catalogo). Si el catálogo todavía no cargó, el
    agente espera y avisa en vez de arriesgar un dato viejo.
 
-   Nota técnica: esas variables están declaradas con let/const en el script
-   principal de index.html, por lo que NO cuelgan de "window" (es una regla
-   del propio JavaScript). Por eso este archivo las lee con globalSitio(),
-   que las busca por su nombre en el scope global del documento. Para que
-   funcione, este script SIEMPRE tiene que cargarse DESPUÉS del script
-   principal, en el mismo documento (no como módulo, no en un iframe).
+   NOTA TÉCNICA IMPORTANTE
+   --------------------------------------------------------------------------
+   El script principal de index.html es un <script type="module">. Todo lo
+   declarado adentro de un módulo queda encerrado en el módulo: NO se puede
+   leer desde un archivo externo, ni con window.X ni con eval.
+
+   Por eso index.html publica, al final de ese módulo, un objeto puente de
+   solo lectura llamado window.COTATO_AGENTE, con las funciones y datos que
+   este archivo necesita. Si ese puente no está, el asistente lo dice en
+   lugar de inventar un precio o un stock.
+
+   Si actualizás index.html, asegurate de que siga existiendo ese bloque
+   "PUENTE PARA EL ASISTENTE VIRTUAL" al final del <script type="module">.
 
    INSTALACIÓN
    --------------------------------------------------------------------------
@@ -49,22 +56,41 @@
   /* ------------------------------------------------------------------ */
   /* 0) PREGUNTAS FRECUENTES — completá esto con info real de tu tienda  */
   /* ------------------------------------------------------------------ */
+  /* Estas respuestas son EXACTAMENTE las de la sección "Preguntas frecuentes"
+   * del sitio (#/faq). Si actualizás una allá, actualizala también acá para
+   * que el asistente no diga algo distinto a la página. */
   const FAQ_COTATO = [
     {
-      claves: ["cambio", "cambios", "devolucion", "devolución", "devoluciones", "no me gusto", "no me gustó"],
-      respuesta: "Podés solicitar un cambio o devolución escribiéndonos por WhatsApp con tu número de pedido. Te contamos los pasos ahí mismo."
+      claves: ["como hago un pedido", "cómo hago un pedido", "como compro", "cómo compro", "como comprar", "cómo comprar", "hacer un pedido", "como pido", "cómo pido"],
+      respuesta: "Elegís tus productos, los agregás al carrito y completás tus datos de envío. Al confirmar, se abre WhatsApp con tu pedido ya armado para que coordinemos el resto."
     },
     {
-      claves: ["fabricacion", "fabricación", "cuanto tardan", "cuánto tardan", "tiempo de entrega", "cuando llega", "cuándo llega"],
-      respuesta: "El tiempo de preparación y envío puede variar según el producto y tu ubicación. Decime tu provincia y te doy una estimación, o preguntá directo por WhatsApp para confirmarlo."
+      claves: ["hacen envios a todo el pais", "envian a todo el pais", "envían a todo el país", "todo el pais", "todo el país", "correo argentino", "que correo", "qué correo"],
+      respuesta: "Sí, enviamos a todo el país por Correo Argentino u otros correos, según lo que más te convenga."
     },
     {
-      claves: ["garantia", "garantía"],
-      respuesta: "Todos nuestros productos tienen garantía por defectos de fabricación. Para gestionarla, escribinos por WhatsApp con tu número de pedido y fotos del producto."
+      claves: ["cuanto tarda", "cuánto tarda", "cuanto tardan", "cuánto tardan", "tiempo de entrega", "cuando llega", "cuándo llega", "demora", "en cuanto llega"],
+      respuesta: "Una vez confirmado el pago, preparamos el envío en las siguientes 24-48 horas hábiles. El tiempo de entrega depende del correo y tu ubicación."
     },
     {
-      claves: ["personalizado", "personalizar", "a medida", "grabado", "iniciales"],
-      respuesta: "Para consultas sobre personalización de productos, lo mejor es que hables directo con nosotros por WhatsApp así vemos las opciones disponibles."
+      claves: ["cambiar o devolver", "cambio", "cambios", "devolucion", "devolución", "devoluciones", "devolver", "no me gusto", "no me gustó", "defecto", "fallado", "vino mal"],
+      respuesta: "Los cambios y devoluciones aplican únicamente por defecto de fábrica. Si tu producto llegó con algún defecto, contactanos por WhatsApp dentro de los primeros días de recibido y coordinamos el cambio."
+    },
+    {
+      claves: ["pedido confirmado", "estado de mi pedido", "seguimiento", "como se si", "cómo sé si", "mi pedido", "donde esta mi pedido", "dónde está mi pedido"],
+      respuesta: 'Podés ver el estado de todos tus pedidos en la sección "Mi cuenta". Ahí también vas a encontrar un botón para retomar la conversación por WhatsApp si quedó algo pendiente de coordinar.'
+    },
+    {
+      claves: ["eliminar mi cuenta", "borrar mi cuenta", "dar de baja", "eliminar cuenta", "borrar cuenta", "darme de baja"],
+      respuesta: 'Sí, en cualquier momento. Desde "Mi cuenta" encontrás la opción para eliminar tu cuenta de forma definitiva. Al hacerlo, se eliminan tus datos personales y de acceso (contraseña, dirección, teléfono, carrito guardado). Los pedidos que ya hayas realizado se conservan en nuestros registros comerciales, sin quedar asociados a ninguna cuenta activa, para dar cumplimiento a nuestras obligaciones contables.'
+    },
+    {
+      claves: ["cambiar mi contrasena", "cambiar mi contraseña", "cambiar contrasena", "cambiar contraseña", "olvide mi contrasena", "olvidé mi contraseña", "recuperar contrasena", "recuperar contraseña", "no recuerdo mi clave", "resetear clave"],
+      respuesta: 'Sí. Podés cambiarla cuando quieras desde "Mi cuenta". Si no la recordás, en la pantalla de inicio de sesión contás con la opción "Olvidé mi contraseña", que te permite establecer una nueva a través de un enlace enviado a tu correo electrónico.'
+    },
+    {
+      claves: ["local fisico", "local físico", "tienen local", "tienen negocio", "puedo ir", "retiro por local", "direccion del local", "dirección del local", "showroom", "atienden al publico"],
+      respuesta: "Trabajamos únicamente de forma online. Podés hacer todas tus consultas por WhatsApp desde la sección Contacto."
     }
   ];
 
@@ -84,37 +110,29 @@
     return lista.some((k) => texto.includes(normalizar(k)));
   }
 
-  /** Lee una variable global del sitio (declarada con let/const en el script
-   *  principal, por eso NO cuelga de window.X — hay que referenciarla por su
-   *  nombre directo dentro del mismo documento). Si no existe todavía o no
-   *  es del tipo esperado, devuelve el valor por defecto sin romper nada. */
-  function globalSitio(nombre, porDefecto) {
-    try {
-      const v = (0, eval)(nombre);
-      return v === undefined || v === null ? porDefecto : v;
-    } catch (e) {
-      return porDefecto;
-    }
+  /** El puente que publica index.html al final de su <script type="module">.
+   *  Todo el acceso a datos reales pasa por acá. Si todavía no está listo,
+   *  devuelve null y el agente avisa en vez de inventar un dato. */
+  function puente() {
+    return window.COTATO_AGENTE || null;
   }
 
   function esc(s) {
-    const fn = globalSitio("escapeHTML", null);
-    if (typeof fn === "function") return fn(s);
+    const b = puente();
+    if (b && typeof b.escapeHTML === "function") return b.escapeHTML(s);
     return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   function precio(p) {
-    const precioFinalFn = globalSitio("precioFinal", null);
-    const f = typeof precioFinalFn === "function" ? precioFinalFn(p) : p.precio;
-    const formatearFn = globalSitio("formatearPrecio", null);
-    if (typeof formatearFn === "function") return formatearFn(f);
-    return "$" + Number(f || 0).toLocaleString("es-AR");
+    const b = puente();
+    const f = (b && typeof b.precioFinal === "function") ? b.precioFinal(p) : p.precio;
+    return precioComoNumero(f);
   }
 
   function img(p) {
     const raw = p.imagenes && p.imagenes[0];
-    const fn = globalSitio("optimizarImagenUrl", null);
-    if (typeof fn === "function") return fn(raw) || "img/placeholder.jpg";
+    const b = puente();
+    if (b && typeof b.optimizarImagenUrl === "function") return b.optimizarImagenUrl(raw) || "img/placeholder.jpg";
     return raw || "img/placeholder.jpg";
   }
 
@@ -122,23 +140,22 @@
   /* 2) ACCESO A LOS DATOS REALES DE LA TIENDA (nunca se inventan)      */
   /* ------------------------------------------------------------------ */
   function productos() {
-    const arr = globalSitio("TODOS_PRODUCTOS", []);
+    const b = puente();
+    const arr = b && typeof b.productos === "function" ? b.productos() : [];
     return Array.isArray(arr) ? arr : [];
   }
   function activos() { return productos().filter((p) => p.activo); }
-  function nombreTienda() {
-    const cfg = globalSitio("CONFIG", null);
-    return (cfg && cfg.nombreTienda) || "COTATO";
+  function cfg() {
+    const b = puente();
+    return (b && typeof b.config === "function") ? (b.config() || {}) : {};
   }
-  function whatsappNumero() {
-    const cfg = globalSitio("CONFIG", null);
-    return cfg && cfg.whatsappNumero;
-  }
+  function nombreTienda() { return cfg().nombreTienda || "COTATO"; }
+  function whatsappNumero() { return cfg().whatsappNumero; }
   function catalogoListo() { return productos().length > 0; }
 
   function linkWa(mensaje) {
-    const fn = globalSitio("linkWhatsApp", null);
-    if (typeof fn === "function") return fn(whatsappNumero(), mensaje);
+    const b = puente();
+    if (b && typeof b.linkWhatsApp === "function") return b.linkWhatsApp(whatsappNumero(), mensaje);
     const n = String(whatsappNumero() || "").replace(/\D/g, "");
     return n ? `https://wa.me/${n}?text=${encodeURIComponent(mensaje)}` : "https://wa.me/";
   }
@@ -170,7 +187,8 @@
   }
 
   function listaCategorias() {
-    const cats = globalSitio("CATEGORIAS_CACHE", []);
+    const b = puente();
+    const cats = b && typeof b.categorias === "function" ? b.categorias() : [];
     if (Array.isArray(cats) && cats.length) return cats.map((c) => c.nombre);
     return [...new Set(activos().map((p) => p.categoria).filter(Boolean))];
   }
@@ -187,32 +205,42 @@
 
   function detectarProvincia(texto) {
     const t = normalizar(texto);
-    const listaSitio = globalSitio("PROVINCIAS_AR", null);
+    const b = puente();
+    const listaSitio = b && typeof b.provincias === "function" ? b.provincias() : null;
     const lista = (Array.isArray(listaSitio) && listaSitio.length) ? listaSitio : PROVINCIAS_AR_LOCAL;
-    return lista.find((prov) => t.includes(normalizar(prov))) || null;
+    // Se ordena de nombre más largo a más corto para que "Buenos Aires" no le
+    // gane a "Ciudad Autónoma de Buenos Aires" cuando el cliente escribe CABA.
+    const ordenada = [...lista].sort((a, c) => c.length - a.length);
+    const directa = ordenada.find((prov) => t.includes(normalizar(prov)));
+    if (directa) return directa;
+    // Alias comunes que la gente escribe y no coinciden con el nombre oficial.
+    if (/\bcaba\b|capital federal|ciudad de buenos aires/.test(t)) {
+      return ordenada.find((p) => normalizar(p).includes("ciudad autonoma")) || null;
+    }
+    return null;
   }
 
   function respuestaEnvio(provincia) {
-    const calcularEnvioFn = globalSitio("calcularEnvio", null);
-    if (typeof calcularEnvioFn !== "function") {
-      return `Hacemos envíos a todo el país. Contanos tu provincia o escribinos por WhatsApp y te confirmamos costo y tiempo estimado.`;
+    const b = puente();
+    if (!b || typeof b.calcularEnvio !== "function") {
+      return `Hacemos envíos a todo el país por Correo Argentino u otros correos. Contanos tu provincia o escribinos por WhatsApp y te confirmamos el costo.`;
     }
-    const r = calcularEnvioFn(provincia, 1);
+    const r = b.calcularEnvio(provincia, 1);
     if (!r.ok) return r.motivo || "No tengo tarifa cargada para esa zona todavía. Te recomiendo consultar por WhatsApp.";
-    const cfg = globalSitio("CONFIG", null);
-    const gratisDesde = cfg && Number(cfg.envioGratisDesde);
+    const gratisDesde = Number(cfg().envioGratisDesde);
     let msg = r.gratis
-      ? `Para ${provincia} el envío te sale <strong>gratis</strong> (superás el mínimo de compra).`
-      : `Para ${provincia} el envío base cuesta <strong>${precioComoNumero(r.costo)}</strong> (el costo final puede variar según la cantidad de artículos).`;
+      ? `Para ${esc(provincia)} el envío te sale <strong>gratis</strong> (superás el mínimo de compra).`
+      : `Para ${esc(provincia)} el envío base cuesta <strong>${precioComoNumero(r.costo)}</strong> (el costo final se ajusta según la cantidad de artículos, y lo ves exacto en el carrito antes de confirmar).`;
     if (!r.gratis && gratisDesde > 0) {
       msg += ` Envío gratis a partir de ${precioComoNumero(gratisDesde)} en compras.`;
     }
+    msg += ` Una vez confirmado el pago, preparamos el envío en 24-48 horas hábiles.`;
     return msg;
   }
 
   function precioComoNumero(n) {
-    const fn = globalSitio("formatearPrecio", null);
-    if (typeof fn === "function") return fn(n);
+    const b = puente();
+    if (b && typeof b.formatearPrecio === "function") return b.formatearPrecio(n);
     return "$" + Number(n || 0).toLocaleString("es-AR");
   }
 
@@ -249,8 +277,10 @@
   function responder(mensajeOriginal) {
     const t = normalizar(mensajeOriginal);
 
-    if (!catalogoListo()) {
-      return { html: `Estoy terminando de cargar el catálogo. Probá de nuevo en un segundo, o escribinos directo por WhatsApp.`, whatsapp: true };
+    // Si el puente no existe (index.html sin el bloque del asistente), no se
+    // puede garantizar ningún dato: se avisa en vez de improvisar.
+    if (!puente()) {
+      return { html: `No puedo acceder al catálogo en este momento. Escribinos por WhatsApp y te respondemos enseguida.`, whatsapp: true };
     }
 
     // Si veníamos esperando una provincia (después de preguntar por envío)
@@ -283,13 +313,20 @@
 
     // Ofertas / promociones
     if (contieneAlguna(t, ["oferta", "ofertas", "promocion", "promoción", "promo", "descuento", "descuentos", "rebaja"])) {
+      if (!catalogoListo()) return { html: `Estoy terminando de cargar el catálogo. Probá de nuevo en unos segundos.` };
       const enOferta = productosEnOferta(6);
       if (!enOferta.length) return { html: `Por el momento no tenemos productos en oferta activa. Te aviso apenas haya alguna, o consultá por WhatsApp por descuentos especiales.`, whatsapp: true };
       return { html: `Estas son nuestras ofertas activas ahora mismo:`, extra: bloqueProductosHTML(enOferta) };
     }
 
+    // Preguntas frecuentes (mismas respuestas que la sección #/faq del sitio).
+    // Va ANTES de envíos/pagos a propósito: "¿cuánto tarda en llegar?" tiene
+    // que responder el plazo real, no el detector genérico de envíos.
+    const faq = FAQ_COTATO.find((f) => contieneAlguna(t, f.claves));
+    if (faq) return { html: faq.respuesta };
+
     // Envíos
-    if (contieneAlguna(t, ["envio", "envios", "mandan", "llega", "entregan", "delivery", "correo"])) {
+    if (contieneAlguna(t, ["envio", "envios", "envío", "envíos", "mandan", "llega", "entregan", "delivery", "correo", "flete"])) {
       const prov = detectarProvincia(t);
       if (prov) return { html: respuestaEnvio(prov) };
       estado.esperandoProvincia = true;
@@ -302,17 +339,11 @@
     }
 
     // Pagos
-    if (contieneAlguna(t, ["pago", "pagos", "como pago", "cómo pago", "transferencia", "efectivo", "tarjeta", "cuotas", "mercado pago", "mercadopago"])) {
-      const cfgPago = globalSitio("CONFIG", null);
-      const alias = cfgPago && cfgPago.aliasCbu;
-      let msg = `Aceptamos <strong>transferencia bancaria</strong>${alias ? " y otros medios de pago" : ""}. Una vez que confirmes tu pedido, te pasamos los datos para pagar.`;
-      msg += ` Muchos de nuestros productos tienen un <strong>precio especial pagando con transferencia</strong>.`;
+    if (contieneAlguna(t, ["pago", "pagos", "como pago", "cómo pago", "pagar", "transferencia", "efectivo", "tarjeta", "cuotas", "mercado pago", "mercadopago", "alias", "cbu"])) {
+      let msg = `Podés pagar por <strong>transferencia bancaria</strong> o mediante la aplicación de pagos que prefieras (Mercado Pago u otras equivalentes). Una vez confirmado el pedido, te enviamos por WhatsApp el alias o los datos correspondientes junto con el total final (productos más envío) para que realices el pago y nos hagas llegar el comprobante.`;
+      msg += ` Además, muchos de nuestros productos tienen un <strong>precio especial pagando con transferencia</strong>.`;
       return { html: msg };
     }
-
-    // Preguntas frecuentes cargadas por el dueño de la tienda
-    const faq = FAQ_COTATO.find((f) => contieneAlguna(t, f.claves));
-    if (faq) return { html: faq.respuesta };
 
     // Hablar con una persona / humano
     if (contieneAlguna(t, ["hablar con alguien", "humano", "persona", "asesor", "vendedor", "whatsapp"])) {
@@ -327,6 +358,9 @@
       "tenes", "tenés", "tienen"
     ]);
     if (esConsultaProducto || t.length > 3) {
+      if (!catalogoListo()) {
+        return { html: `Estoy terminando de cargar el catálogo. Probá de nuevo en unos segundos y te muestro los productos con precio y stock reales.` };
+      }
       const resultados = buscarProductos(mensajeOriginal, 5);
       if (resultados.length) {
         estado.ultimaBusqueda = mensajeOriginal;
@@ -461,6 +495,7 @@
         <button type="button" class="cotato-ag-chip" data-chip="Ver ofertas">🔥 Ofertas</button>
         <button type="button" class="cotato-ag-chip" data-chip="Costos de envío">🚚 Envíos</button>
         <button type="button" class="cotato-ag-chip" data-chip="Formas de pago">💳 Pagos</button>
+        <button type="button" class="cotato-ag-chip" data-chip="¿Cómo hago un pedido?">📦 Cómo comprar</button>
         <button type="button" class="cotato-ag-chip" data-chip="Hablar con un asesor">🙋 Asesor</button>
       </div>
       <form id="cotato-ag-form" autocomplete="off">
@@ -502,22 +537,21 @@
   }
 
   function bindAccionesProducto(cont) {
-    cont.querySelectorAll("[data-ver]").forEach((b) => b.addEventListener("click", () => {
-      location.hash = "#/producto/" + b.dataset.ver;
+    cont.querySelectorAll("[data-ver]").forEach((btn) => btn.addEventListener("click", () => {
+      const b = puente();
+      if (b && typeof b.irAProducto === "function") b.irAProducto(btn.dataset.ver);
+      else location.hash = "#/producto/" + btn.dataset.ver;
       cerrarPanel();
     }));
-    cont.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => {
-      if (b.disabled) return;
-      const p = productos().find((x) => x.id === b.dataset.add);
-      if (!p) return;
-      const carrito = globalSitio("Carrito", null);
-      if (carrito && typeof carrito.agregar === "function") {
-        carrito.agregar(p, 1);
-        const toastFn = globalSitio("mostrarToast", null);
-        if (typeof toastFn === "function") toastFn("Agregado al carrito", "success");
-        b.textContent = "✓ Agregado";
-        setTimeout(() => (b.textContent = "Agregar"), 1400);
-      }
+    cont.querySelectorAll("[data-add]").forEach((btn) => btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      const p = productos().find((x) => x.id === btn.dataset.add);
+      const b = puente();
+      if (!p || !b || typeof b.agregarAlCarrito !== "function") return;
+      b.agregarAlCarrito(p, 1);
+      if (typeof b.mostrarToast === "function") b.mostrarToast("Agregado al carrito", "success");
+      btn.textContent = "✓ Agregado";
+      setTimeout(() => (btn.textContent = "Agregar"), 1400);
     }));
   }
 
