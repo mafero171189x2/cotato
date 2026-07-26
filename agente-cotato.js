@@ -182,6 +182,163 @@
     return activos().filter((p) => normalizar(p.categoria).includes(t) || t.includes(normalizar(p.categoria)));
   }
 
+  /* ------------------------------------------------------------------ */
+  /* 2.b) FILTROS ESTRUCTURADOS                                          */
+  /*      "mochilas negras de menos de $30.000 en oferta" se convierte   */
+  /*      en un filtro con campos concretos, y recién ahí se busca.      */
+  /* ------------------------------------------------------------------ */
+  const COLORES = [
+    "negro", "blanco", "gris", "marron", "beige", "camel", "nude", "tostado",
+    "verde", "verde militar", "azul", "celeste", "rojo", "bordo", "rosa",
+    "violeta", "lila", "amarillo", "naranja", "plateado", "dorado"
+  ];
+
+  /** Convierte "30.000", "30000", "30 mil" o "$30.000" en el número 30000. */
+  function aNumero(txt) {
+    if (!txt) return null;
+    let s = String(txt).toLowerCase().replace(/[$\s]/g, "");
+    const enMiles = /mil$/.test(s);
+    s = s.replace(/mil$/, "").replace(/\./g, "").replace(/,/g, ".");
+    let n = parseFloat(s);
+    if (!Number.isFinite(n)) return null;
+    if (enMiles) n *= 1000;
+    return n;
+  }
+
+  /** Lee un mensaje libre y extrae los filtros que se puedan reconocer.
+   *  Lo que no aparece queda en null: nunca se asume nada. */
+  function parsearFiltros(mensaje) {
+    const t = normalizar(mensaje);
+    const f = { texto: mensaje, categoria: null, color: null, precioMin: null, precioMax: null, soloOferta: false, soloStock: false, orden: null };
+
+    // --- Precio ---
+    const num = "(\\d[\\d.,]*\\s*(?:mil)?)";
+    let m;
+    if ((m = t.match(new RegExp("entre\\s*\\$?" + num + "\\s*(?:y|a)\\s*\\$?" + num)))) {
+      f.precioMin = aNumero(m[1]); f.precioMax = aNumero(m[2]);
+    } else if ((m = t.match(new RegExp("(?:menos de|hasta|por debajo de|maximo|max|no mas de|que no pase de)\\s*\\$?" + num)))) {
+      f.precioMax = aNumero(m[1]);
+    } else if ((m = t.match(new RegExp("(?:mas de|desde|arriba de|minimo|superior a)\\s*\\$?" + num)))) {
+      f.precioMin = aNumero(m[1]);
+    }
+
+    // --- Color (el más largo primero: "verde militar" antes que "verde") ---
+    const colorHallado = [...COLORES].sort((a, b) => b.length - a.length)
+      .find((c) => new RegExp("\\b" + c + "(?:s|a|as|os)?\\b").test(t));
+    if (colorHallado) f.color = colorHallado;
+
+    // --- Categoría (contra las categorías reales de la tienda) ---
+    const cats = listaCategorias();
+    const catHallada = cats.find((c) => t.includes(normalizar(c)) || normalizar(c).includes(t));
+    if (catHallada) f.categoria = catHallada;
+
+    // --- Oferta / stock / orden ---
+    if (/\boferta|promo|descuento|rebaja/.test(t)) f.soloOferta = true;
+    if (/\bstock|disponible|hay\b/.test(t)) f.soloStock = true;
+    if (/barat|economic|mas accesible|menor precio|mas barato/.test(t)) f.orden = "precio-asc";
+    if (/\bcaro|premium|mas caro|mayor precio/.test(t)) f.orden = "precio-desc";
+
+    return f;
+  }
+
+  /** Aplica un filtro estructurado sobre el catálogo REAL. */
+  function buscarConFiltros(f, limite = 6) {
+    let items = activos();
+
+    if (f.categoria) {
+      const c = normalizar(f.categoria);
+      items = items.filter((p) => normalizar(p.categoria).includes(c) || c.includes(normalizar(p.categoria)));
+    }
+    if (f.color) {
+      const c = normalizar(f.color);
+      items = items.filter((p) => normalizar(`${p.nombre} ${p.descripcion || ""} ${p.marca || ""}`).includes(c));
+    }
+    if (f.soloOferta) items = items.filter((p) => p.enOferta);
+    if (f.soloStock) items = items.filter((p) => p.stock > 0);
+
+    const precioDe = (p) => {
+      const b = puente();
+      return (b && typeof b.precioFinal === "function") ? b.precioFinal(p) : Number(p.precio) || 0;
+    };
+    if (f.precioMin != null) items = items.filter((p) => precioDe(p) >= f.precioMin);
+    if (f.precioMax != null) items = items.filter((p) => precioDe(p) <= f.precioMax);
+
+    // Si además hay texto libre, se usa para ordenar por relevancia.
+    if (f.texto) {
+      const palabras = normalizar(f.texto).split(" ").filter((w) => w.length > 3);
+      items = items.map((p) => {
+        const campos = normalizar([p.nombre, p.marca, p.categoria, p.descripcion].join(" "));
+        let puntaje = 0;
+        palabras.forEach((w) => { if (campos.includes(w)) puntaje += 1; });
+        return { p, puntaje };
+      }).sort((a, b) => b.puntaje - a.puntaje).map((x) => x.p);
+    }
+
+    if (f.orden === "precio-asc") items = [...items].sort((a, b) => precioDe(a) - precioDe(b));
+    if (f.orden === "precio-desc") items = [...items].sort((a, b) => precioDe(b) - precioDe(a));
+
+    return items.slice(0, limite);
+  }
+
+  /** Describe el filtro en palabras, para que el cliente vea qué se aplicó. */
+  function describirFiltros(f) {
+    const partes = [];
+    if (f.categoria) partes.push(esc(f.categoria.toLowerCase()));
+    if (f.color) partes.push(`color ${f.color}`);
+    if (f.precioMin != null && f.precioMax != null) partes.push(`entre ${precioComoNumero(f.precioMin)} y ${precioComoNumero(f.precioMax)}`);
+    else if (f.precioMax != null) partes.push(`hasta ${precioComoNumero(f.precioMax)}`);
+    else if (f.precioMin != null) partes.push(`desde ${precioComoNumero(f.precioMin)}`);
+    if (f.soloOferta) partes.push("en oferta");
+    return partes.join(", ");
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 2.c) COMPARACIÓN DE PRODUCTOS                                       */
+  /* ------------------------------------------------------------------ */
+  /** Detecta "diferencia entre X y Y" / "comparar X con Y" y devuelve los
+   *  productos mencionados (o null si no es una comparación). */
+  function detectarComparacion(mensaje) {
+    const t = normalizar(mensaje);
+    if (!/\b(diferencia|compar|versus|\bvs\b|cual es mejor|cuál es mejor|o el|o la)\b/.test(t)) return null;
+    // Se parte por "y", "vs", "versus", "o" y se busca cada mitad en el catálogo.
+    const partes = t.split(/\s+(?:y|o|vs|versus|contra)\s+/).map((s) => s.trim()).filter(Boolean);
+    if (partes.length < 2) return null;
+    const encontrados = [];
+    partes.forEach((parte) => {
+      const r = buscarProductos(parte, 1);
+      if (r.length && !encontrados.some((x) => x.id === r[0].id)) encontrados.push(r[0]);
+    });
+    return encontrados.length >= 2 ? encontrados.slice(0, 3) : null;
+  }
+
+  /** Tabla comparativa con datos reales. Solo muestra filas que existan. */
+  function tablaComparacionHTML(lista) {
+    const b = puente();
+    const precioDe = (p) => (b && typeof b.precioFinal === "function") ? b.precioFinal(p) : Number(p.precio) || 0;
+    const masBarato = lista.reduce((a, p) => (precioDe(p) < precioDe(a) ? p : a), lista[0]);
+
+    const filas = [
+      { etiqueta: "Precio", valor: (p) => `${precio(p)}${p.id === masBarato.id && lista.length > 1 ? ' <span style="font-size:.62rem;opacity:.75">más económico</span>' : ""}` },
+      { etiqueta: "Stock", valor: (p) => (p.stock > 0 ? `${esc(p.stock)} u.` : "Sin stock") },
+      { etiqueta: "Categoría", valor: (p) => esc(p.categoria || "—") },
+      { etiqueta: "Marca", valor: (p) => esc(p.marca || "—") },
+      { etiqueta: "Oferta", valor: (p) => (p.enOferta ? `-${esc(p.porcentajeDescuento)}%` : "—") }
+    ];
+
+    return `
+    <div class="cotato-ag-comp-wrap">
+      <table class="cotato-ag-comp">
+        <thead>
+          <tr><th></th>${lista.map((p) => `<th>${esc(p.nombre)}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${filas.map((f) => `<tr><td class="cotato-ag-comp-lbl">${f.etiqueta}</td>${lista.map((p) => `<td>${f.valor(p)}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    ${bloqueProductosHTML(lista)}`;
+  }
+
   function productosEnOferta(limite = 5) {
     return activos().filter((p) => p.enOferta).slice(0, limite);
   }
@@ -361,6 +518,35 @@
       if (!catalogoListo()) {
         return { html: `Estoy terminando de cargar el catálogo. Probá de nuevo en unos segundos y te muestro los productos con precio y stock reales.` };
       }
+
+      // ¿Es una comparación? ("diferencia entre el Oslo y el Bergen")
+      const comparar = detectarComparacion(mensajeOriginal);
+      if (comparar) {
+        return { html: `Te los comparo:`, extra: tablaComparacionHTML(comparar) };
+      }
+
+      // Filtros estructurados: precio, color, categoría, oferta.
+      const f = parsearFiltros(mensajeOriginal);
+      const tieneFiltro = f.categoria || f.color || f.precioMin != null || f.precioMax != null || f.soloOferta || f.orden;
+      if (tieneFiltro) {
+        const conFiltro = buscarConFiltros(f, 6);
+        const desc = describirFiltros(f);
+        if (conFiltro.length) {
+          return { html: desc ? `Esto es lo que tengo ${desc}:` : `Encontré estas opciones:`, extra: bloqueProductosHTML(conFiltro) };
+        }
+        // Sin resultados: se afloja el filtro de precio antes de rendirse.
+        if (f.precioMax != null || f.precioMin != null) {
+          const sinPrecio = buscarConFiltros({ ...f, precioMin: null, precioMax: null }, 4);
+          if (sinPrecio.length) {
+            return {
+              html: `No tengo nada ${desc}. Lo más cercano que tengo:`,
+              extra: bloqueProductosHTML(sinPrecio)
+            };
+          }
+        }
+        return { html: `No encontré productos ${desc}. ¿Querés que te muestre otras opciones, o preferís consultarnos por WhatsApp?`, whatsapp: true };
+      }
+
       const resultados = buscarProductos(mensajeOriginal, 5);
       if (resultados.length) {
         estado.ultimaBusqueda = mensajeOriginal;
@@ -377,6 +563,84 @@
       whatsapp: true
     };
   }
+
+  /* ------------------------------------------------------------------ */
+  /* 5.b) CAPA DE IA (Gemini, vía el Worker de COTATO)                   */
+  /* ------------------------------------------------------------------ */
+  /* CÓMO SE EVITA QUE LA IA INVENTE DATOS
+   * -------------------------------------
+   * Gemini NUNCA escribe precios ni stock. Se le manda el catálogo como
+   * contexto y se le pide que responda un JSON donde solo elige:
+   *   - un texto conversacional (sin números de precio),
+   *   - qué IDs de producto mostrar,
+   *   - si conviene comparar o derivar a WhatsApp.
+   * Las tarjetas y la tabla se arman después con el catálogo REAL del
+   * navegador. Si Gemini nombra un ID que no existe, se descarta.
+   * Si el Worker falla o tarda, se usa el motor de reglas de siempre. */
+
+  const IA = {
+    activa: true,          // poné false para volver al motor de reglas puro
+    ruta: "/api/agente",   // endpoint en tu Worker (ver worker-agente.js)
+    disponible: true,      // se apaga sola si el endpoint no existe
+    historial: []          // últimos turnos, para que la charla tenga hilo
+  };
+
+  /** Versión compacta del catálogo: solo lo necesario para que la IA elija.
+   *  Se recortan descripciones largas para no gastar tokens de más. */
+  function catalogoParaIA() {
+    const b = puente();
+    const precioDe = (p) => (b && typeof b.precioFinal === "function") ? b.precioFinal(p) : Number(p.precio) || 0;
+    return activos().slice(0, 120).map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      categoria: p.categoria || "",
+      marca: p.marca || "",
+      precio: precioDe(p),
+      stock: Number(p.stock) || 0,
+      oferta: !!p.enOferta,
+      desc: String(p.descripcion || "").slice(0, 160)
+    }));
+  }
+
+  async function responderConIA(mensaje) {
+    const b = puente();
+    if (!b || typeof b.api !== "function") throw new Error("sin api");
+
+    const data = await b.api(IA.ruta, {
+      method: "POST",
+      timeoutMs: 15000,
+      body: {
+        mensaje,
+        historial: IA.historial.slice(-6),
+        catalogo: catalogoParaIA(),
+        faq: FAQ_COTATO.map((f) => ({ tema: f.claves[0], respuesta: f.respuesta })),
+        tienda: {
+          nombre: nombreTienda(),
+          envioGratisDesde: Number(cfg().envioGratisDesde) || 0,
+          tieneWhatsapp: !!whatsappNumero()
+        }
+      }
+    });
+
+    if (!data || typeof data.respuesta !== "string") throw new Error("respuesta inválida");
+
+    // Solo se aceptan IDs que existan de verdad en el catálogo local.
+    const catalogo = activos();
+    const elegidos = (Array.isArray(data.ids) ? data.ids : [])
+      .map((id) => catalogo.find((p) => p.id === id))
+      .filter(Boolean)
+      .slice(0, 6);
+
+    let extra = "";
+    if (data.accion === "comparar" && elegidos.length >= 2) extra = tablaComparacionHTML(elegidos);
+    else if (elegidos.length) extra = bloqueProductosHTML(elegidos);
+
+    IA.historial.push({ rol: "cliente", texto: mensaje });
+    IA.historial.push({ rol: "asistente", texto: data.respuesta });
+
+    return { html: esc(data.respuesta), extra, whatsapp: !!data.derivar_whatsapp };
+  }
+
 
   /* ------------------------------------------------------------------ */
   /* 6) INTERFAZ (se inyecta sola, sin tocar el HTML del sitio)          */
@@ -448,6 +712,12 @@
     }
     .cotato-ag-btn-add { background: var(--btn-fondo, #D2A362); color: var(--btn-texto, #14110F); border: none; }
     .cotato-ag-btn-add[disabled] { opacity: .4; cursor: default; }
+    .cotato-ag-comp-wrap { overflow-x: auto; margin-top: 6px; border: 1px solid var(--borde, #352E29); border-radius: 10px; }
+    .cotato-ag-comp { width: 100%; border-collapse: collapse; font-size: .72rem; }
+    .cotato-ag-comp th, .cotato-ag-comp td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--borde, #352E29); vertical-align: top; }
+    .cotato-ag-comp thead th { background: var(--elevado-2, #322C27); font-weight: 700; font-size: .7rem; }
+    .cotato-ag-comp tbody tr:last-child td { border-bottom: none; }
+    .cotato-ag-comp-lbl { color: var(--humo, #9A9188); font-weight: 600; white-space: nowrap; }
     #cotato-ag-chips { display: flex; gap: 6px; padding: 0 14px 10px; flex-wrap: wrap; flex-shrink: 0; }
     .cotato-ag-chip {
       font-size: .72rem; background: var(--elevado, #282320); border: 1px solid var(--borde, #352E29);
@@ -573,17 +843,33 @@
     }));
   }
 
-  function enviarMensajeUsuario(texto) {
+  async function enviarMensajeUsuario(texto) {
     if (!texto.trim()) return;
     agregarMensaje(esc(texto), "user");
     mostrarEscribiendo();
-    // Pequeña demora simulando "está escribiendo" — mejora la sensación de agente real,
-    // pero la respuesta siempre sale del catálogo real, sin inventar nada.
-    setTimeout(() => {
-      quitarEscribiendo();
-      const r = responder(texto);
-      agregarMensaje(r.html, "bot", r.extra, r.whatsapp);
-    }, 450);
+
+    let r = null;
+
+    // 1) Primero se intenta la IA (charla fluida, entiende cualquier frase).
+    if (IA.activa && IA.disponible && puente()) {
+      try {
+        r = await responderConIA(texto);
+      } catch (e) {
+        console.warn("[agente] IA no disponible, se usa el motor de reglas:", e && e.message);
+        // Si el endpoint no existe (404) no se reintenta más en esta sesión.
+        if (String(e && e.message).includes("404")) IA.disponible = false;
+      }
+    }
+
+    // 2) Si la IA falló o está apagada, responde el motor de reglas local.
+    //    Nunca se queda mudo ni inventa: siempre hay una respuesta válida.
+    if (!r) {
+      await new Promise((res) => setTimeout(res, 350));
+      r = responder(texto);
+    }
+
+    quitarEscribiendo();
+    agregarMensaje(r.html, "bot", r.extra, r.whatsapp);
   }
 
   function abrirPanel() {
