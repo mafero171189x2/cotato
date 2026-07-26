@@ -21,7 +21,7 @@
    para que lo revises y edites antes de guardar. Nada se guarda solo.
    ========================================================================== */
 
-import { jsonError, requiereAdmin } from "../auth/middleware.js";
+import { jsonError, json, requiereAdmin } from "../auth/middleware.js";
 
 /* Mismo modelo que el asistente del cliente (Gemini 2.0 se dio de baja el
    1/6/2026). Se puede sobreescribir con la variable GEMINI_MODELO. */
@@ -241,8 +241,4 @@ export async function handleAdminIA(request, env, url) {
     console.error(e);
     return jsonError("No se pudo generar el contenido", 500);
   }
-}
-
-function json(obj) {
-  return new Response(JSON.stringify(obj), { headers: { "Content-Type": "application/json" } });
 }
