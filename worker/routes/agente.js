@@ -22,6 +22,7 @@
    ========================================================================== */
 
 import { jsonError } from "../auth/middleware.js";
+import { avisarSiModeloRoto } from "./alerta-modelo.js";
 
 /* Modelos vigentes de Gemini (Gemini 2.0 se dio de baja el 1/6/2026):
      - "gemini-3.5-flash-lite" : el más rápido y barato. Ideal para esto.
@@ -164,6 +165,7 @@ export async function handleAgente(request, env, url) {
   if (!geminiRes.ok) {
     const detalle = await geminiRes.text().catch(() => "");
     console.error("Gemini error", geminiRes.status, detalle.slice(0, 300));
+    await avisarSiModeloRoto(env, geminiRes, "chat del cliente (agente.js)");
     return jsonError("Gemini respondió con error", 502);
   }
 
