@@ -43,9 +43,10 @@
 
    PERSONALIZACIÓN
    --------------------------------------------------------------------------
-   - Editá FAQ_COTATO más abajo con tus propias preguntas frecuentes reales
-     (tiempos de fabricación, cambios/devoluciones, garantía, etc.). El
-     agente NO inventa estas respuestas: son las que vos cargues acá.
+   - Las preguntas frecuentes NO se cargan acá: el asistente las lee directo
+     de tu sección "Preguntas frecuentes" (#/faq) del sitio. Si agregás,
+     sacás o editás una pregunta ahí, el asistente la usa automáticamente,
+     sin tocar este archivo. Una sola fuente de verdad.
    - Los colores se toman solos de las variables CSS del sitio (--laton,
      --superficie, --texto, etc.), así que respeta el tema claro/oscuro
      sin que haya que tocar nada.
@@ -54,45 +55,80 @@
   "use strict";
 
   /* ------------------------------------------------------------------ */
-  /* 0) PREGUNTAS FRECUENTES — completá esto con info real de tu tienda  */
+  /* 0) PREGUNTAS FRECUENTES — se leen DIRECTO del sitio, no se duplican  */
   /* ------------------------------------------------------------------ */
-  /* Estas respuestas son EXACTAMENTE las de la sección "Preguntas frecuentes"
-   * del sitio (#/faq). Si actualizás una allá, actualizala también acá para
-   * que el asistente no diga algo distinto a la página. */
-  const FAQ_COTATO = [
-    {
-      claves: ["como hago un pedido", "cómo hago un pedido", "como compro", "cómo compro", "como comprar", "cómo comprar", "hacer un pedido", "como pido", "cómo pido"],
-      respuesta: "Elegís tus productos, los agregás al carrito y completás tus datos de envío. Al confirmar, se abre WhatsApp con tu pedido ya armado para que coordinemos el resto."
-    },
-    {
-      claves: ["hacen envios a todo el pais", "envian a todo el pais", "envían a todo el país", "todo el pais", "todo el país", "correo argentino", "que correo", "qué correo"],
-      respuesta: "Sí, enviamos a todo el país por Correo Argentino u otros correos, según lo que más te convenga."
-    },
-    {
-      claves: ["cuanto tarda", "cuánto tarda", "cuanto tardan", "cuánto tardan", "tiempo de entrega", "cuando llega", "cuándo llega", "demora", "en cuanto llega"],
-      respuesta: "Una vez confirmado el pago, preparamos el envío en las siguientes 24-48 horas hábiles. El tiempo de entrega depende del correo y tu ubicación."
-    },
-    {
-      claves: ["cambiar o devolver", "cambio", "cambios", "devolucion", "devolución", "devoluciones", "devolver", "no me gusto", "no me gustó", "defecto", "fallado", "vino mal"],
-      respuesta: "Los cambios y devoluciones aplican únicamente por defecto de fábrica. Si tu producto llegó con algún defecto, contactanos por WhatsApp dentro de los primeros días de recibido y coordinamos el cambio."
-    },
-    {
-      claves: ["pedido confirmado", "estado de mi pedido", "seguimiento", "como se si", "cómo sé si", "mi pedido", "donde esta mi pedido", "dónde está mi pedido"],
-      respuesta: 'Podés ver el estado de todos tus pedidos en la sección "Mi cuenta". Ahí también vas a encontrar un botón para retomar la conversación por WhatsApp si quedó algo pendiente de coordinar.'
-    },
-    {
-      claves: ["eliminar mi cuenta", "borrar mi cuenta", "dar de baja", "eliminar cuenta", "borrar cuenta", "darme de baja"],
-      respuesta: 'Sí, en cualquier momento. Desde "Mi cuenta" encontrás la opción para eliminar tu cuenta de forma definitiva. Al hacerlo, se eliminan tus datos personales y de acceso (contraseña, dirección, teléfono, carrito guardado). Los pedidos que ya hayas realizado se conservan en nuestros registros comerciales, sin quedar asociados a ninguna cuenta activa, para dar cumplimiento a nuestras obligaciones contables.'
-    },
-    {
-      claves: ["cambiar mi contrasena", "cambiar mi contraseña", "cambiar contrasena", "cambiar contraseña", "olvide mi contrasena", "olvidé mi contraseña", "recuperar contrasena", "recuperar contraseña", "no recuerdo mi clave", "resetear clave"],
-      respuesta: 'Sí. Podés cambiarla cuando quieras desde "Mi cuenta". Si no la recordás, en la pantalla de inicio de sesión contás con la opción "Olvidé mi contraseña", que te permite establecer una nueva a través de un enlace enviado a tu correo electrónico.'
-    },
-    {
-      claves: ["local fisico", "local físico", "tienen local", "tienen negocio", "puedo ir", "retiro por local", "direccion del local", "dirección del local", "showroom", "atienden al publico"],
-      respuesta: "Trabajamos únicamente de forma online. Podés hacer todas tus consultas por WhatsApp desde la sección Contacto."
-    }
+  /* Antes había un array con las respuestas copiadas a mano acá adentro.
+   * El problema: si alguna vez actualizás una política en la página
+   * #/faq (plazos, cambios, etc.) y te olvidás de tocar este archivo
+   * también, el asistente queda diciendo algo distinto a tu propio sitio.
+   *
+   * Ahora el asistente lee la sección "Preguntas frecuentes" directo del
+   * HTML (siempre está en el DOM, aunque esa vista esté oculta) — una
+   * sola fuente de verdad. Si cambiás una respuesta en el sitio, el
+   * asistente la usa actualizada sin tocar este archivo. */
+
+  /** Frases que la gente escribe y que capaz no aparecen tal cual en el
+   *  enunciado de la pregunta del sitio, pero deberían disparar esa misma
+   *  respuesta. Esto NO duplica la respuesta (esa se lee siempre del sitio)
+   *  — solo ayuda a reconocer la intención. Si el enunciado de una pregunta
+   *  cambia mucho en el sitio, en el peor caso un sinónimo deja de aplicar
+   *  (se degrada solo, no rompe nada ni queda desactualizado). */
+  const SINONIMOS_FAQ = [
+    { si: "hago un pedido", agrega: ["como comprar", "cómo comprar", "como compro", "cómo compro", "quiero comprar"] },
+    { si: "todo el pais", agrega: ["envian a todo el pais", "envían a todo el país", "correo argentino", "que correo", "qué correo"] },
+    { si: "tarda en llegar", agrega: ["cuando llega", "cuándo llega", "demora", "en cuanto llega", "tiempo de entrega"] },
+    { si: "cambiar o devolver", agrega: ["devolucion", "devolución", "devoluciones", "no me gusto", "no me gustó", "vino mal", "fallado", "defecto"] },
+    { si: "pedido fue confirmado", agrega: ["estado de mi pedido", "seguimiento", "donde esta mi pedido", "dónde está mi pedido", "mi pedido"] },
+    { si: "eliminar mi cuenta", agrega: ["borrar mi cuenta", "dar de baja", "darme de baja", "borrar cuenta"] },
+    { si: "cambiar mi contrasena", agrega: ["cambiar mi contraseña", "olvide mi contrasena", "olvidé mi contraseña", "recuperar clave", "no recuerdo mi clave", "resetear clave"] },
+    { si: "tienen local fisico", agrega: ["tienen local físico", "tienen negocio", "puedo ir", "retiro por local", "showroom", "atienden al publico", "atienden al público"] },
+    { si: "como pago", agrega: ["pagar", "transferencia", "efectivo", "tarjeta", "cuotas", "mercado pago", "mercadopago", "alias", "cbu"] }
   ];
+
+  /** Convierte la pregunta en un set de "claves" para reconocerla: la frase
+   *  completa, pares de palabras consecutivas (más específico que palabras
+   *  sueltas, para no confundir preguntas distintas que comparten una
+   *  palabra común como "pedido"), y los sinónimos que apliquen. */
+  function derivarClaves(preguntaTexto) {
+    const norm = normalizar(preguntaTexto);
+    const palabras = norm.split(" ").filter(Boolean);
+    const claves = new Set([norm]);
+    for (let i = 0; i < palabras.length - 1; i++) claves.add(palabras[i] + " " + palabras[i + 1]);
+    SINONIMOS_FAQ.forEach(({ si, agrega }) => {
+      if (norm.includes(normalizar(si))) agrega.forEach((a) => claves.add(normalizar(a)));
+    });
+    return [...claves];
+  }
+
+  /** Lee la sección "Preguntas frecuentes" directo del HTML del sitio.
+   *  Es contenido estático que siempre está en el documento (aunque esa
+   *  vista esté oculta), así que se puede cachear sin problema. */
+  let _faqCache = null;
+  function leerFaqDelSitio() {
+    if (_faqCache) return _faqCache;
+    const items = document.querySelectorAll('[data-view="faq"] .faq-item');
+    const lista = [];
+    items.forEach((el) => {
+      const pregunta = el.querySelector("summary")?.textContent?.trim();
+      const respuesta = el.querySelector(".faq-respuesta")?.textContent?.trim();
+      if (!pregunta || !respuesta) return;
+      lista.push({ pregunta, respuesta, claves: derivarClaves(pregunta) });
+    });
+    _faqCache = lista;
+    return lista;
+  }
+
+  /** Busca la pregunta del sitio que mejor matchea el mensaje del cliente,
+   *  por cantidad de claves coincidentes (no la primera que matchee "algo",
+   *  para no confundir preguntas parecidas). */
+  function buscarEnFaq(textoNormalizado) {
+    let mejor = null, mejorScore = 0;
+    leerFaqDelSitio().forEach((f) => {
+      const score = f.claves.reduce((acc, k) => acc + (textoNormalizado.includes(k) ? 1 : 0), 0);
+      if (score > mejorScore) { mejor = f; mejorScore = score; }
+    });
+    return mejor;
+  }
 
   /* ------------------------------------------------------------------ */
   /* 1) UTILIDADES DE TEXTO                                              */
@@ -516,11 +552,20 @@
       return { html: `Estas son nuestras ofertas activas ahora mismo:`, extra: bloqueProductosHTML(enOferta) };
     }
 
-    // Preguntas frecuentes (mismas respuestas que la sección #/faq del sitio).
+    // Preguntas frecuentes: se leen directo de la página #/faq del sitio,
+    // así nunca dicen algo distinto a lo que el cliente puede leer ahí.
     // Va ANTES de envíos/pagos a propósito: "¿cuánto tarda en llegar?" tiene
     // que responder el plazo real, no el detector genérico de envíos.
-    const faq = FAQ_COTATO.find((f) => contieneAlguna(t, f.claves));
-    if (faq) return { html: faq.respuesta };
+    const faq = buscarEnFaq(t);
+    if (faq) {
+      let respuesta = esc(faq.respuesta);
+      // Enriquecimiento propio del asistente (no está en el texto de la FAQ,
+      // pero es un dato real y útil): el precio especial por transferencia.
+      if (normalizar(faq.pregunta).includes("como pago")) {
+        respuesta += ` Además, muchos de nuestros productos tienen un <strong>precio especial pagando con transferencia</strong>.`;
+      }
+      return { html: respuesta };
+    }
 
     // Envíos
     if (contieneAlguna(t, ["envio", "envios", "envío", "envíos", "mandan", "llega", "entregan", "delivery", "correo", "flete"])) {
@@ -535,11 +580,14 @@
       return { html: respuestaEnvio(provinciaSuelta) };
     }
 
-    // Pagos
-    if (contieneAlguna(t, ["pago", "pagos", "como pago", "cómo pago", "pagar", "transferencia", "efectivo", "tarjeta", "cuotas", "mercado pago", "mercadopago", "alias", "cbu"])) {
-      let msg = `Podés pagar por <strong>transferencia bancaria</strong> o mediante la aplicación de pagos que prefieras (Mercado Pago u otras equivalentes). Una vez confirmado el pedido, te enviamos por WhatsApp el alias o los datos correspondientes junto con el total final (productos más envío) para que realices el pago y nos hagas llegar el comprobante.`;
-      msg += ` Además, muchos de nuestros productos tienen un <strong>precio especial pagando con transferencia</strong>.`;
-      return { html: msg };
+    // Pagos: si llegó hasta acá sin matchear la FAQ real ("¿Cómo pago?"),
+    // es una frase suelta como "efectivo" o "tarjeta" sin más contexto —
+    // se responde con lo mismo, sin inventar nada nuevo.
+    if (contieneAlguna(t, ["pago", "pagos", "pagar", "transferencia", "efectivo", "tarjeta", "cuotas", "mercado pago", "mercadopago", "alias", "cbu"])) {
+      const faqPago = leerFaqDelSitio().find((f) => normalizar(f.pregunta).includes("como pago"));
+      if (faqPago) {
+        return { html: `${esc(faqPago.respuesta)} Además, muchos de nuestros productos tienen un <strong>precio especial pagando con transferencia</strong>.` };
+      }
     }
 
     // Hablar con una persona / humano
@@ -668,7 +716,7 @@
         mensaje,
         historial: IA.historial.slice(-6),
         catalogo: catalogoParaIA(),
-        faq: FAQ_COTATO.map((f) => ({ tema: f.claves[0], respuesta: f.respuesta })),
+        faq: leerFaqDelSitio().map((f) => ({ tema: f.pregunta, respuesta: f.respuesta })),
         tienda: {
           nombre: nombreTienda(),
           envioGratisDesde: Number(cfg().envioGratisDesde) || 0,
