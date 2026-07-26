@@ -7,6 +7,10 @@ export function mapProducto(row) {
     id: row.id,
     nombre: row.nombre,
     descripcion: row.descripcion,
+    // Texto alternativo de la foto (SEO / accesibilidad). Los productos
+    // viejos no lo tienen cargado: se devuelve "" y la tienda usa el nombre
+    // del producto como respaldo.
+    altImagen: row.alt_imagen || "",
     categoria: row.categoria,
     marca: row.marca,
     precio: row.precio,
