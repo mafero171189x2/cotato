@@ -17,6 +17,13 @@
    (Firestore, vía /api/catalogo). Si el catálogo todavía no cargó, el
    agente espera y avisa en vez de arriesgar un dato viejo.
 
+   Nota técnica: esas variables están declaradas con let/const en el script
+   principal de index.html, por lo que NO cuelgan de "window" (es una regla
+   del propio JavaScript). Por eso este archivo las lee con globalSitio(),
+   que las busca por su nombre en el scope global del documento. Para que
+   funcione, este script SIEMPRE tiene que cargarse DESPUÉS del script
+   principal, en el mismo documento (no como módulo, no en un iframe).
+
    INSTALACIÓN
    --------------------------------------------------------------------------
    1) Subí este archivo junto al resto (por ej. junto a index.html).
@@ -77,34 +84,61 @@
     return lista.some((k) => texto.includes(normalizar(k)));
   }
 
+  /** Lee una variable global del sitio (declarada con let/const en el script
+   *  principal, por eso NO cuelga de window.X — hay que referenciarla por su
+   *  nombre directo dentro del mismo documento). Si no existe todavía o no
+   *  es del tipo esperado, devuelve el valor por defecto sin romper nada. */
+  function globalSitio(nombre, porDefecto) {
+    try {
+      const v = (0, eval)(nombre);
+      return v === undefined || v === null ? porDefecto : v;
+    } catch (e) {
+      return porDefecto;
+    }
+  }
+
   function esc(s) {
-    if (typeof window.escapeHTML === "function") return window.escapeHTML(s);
+    const fn = globalSitio("escapeHTML", null);
+    if (typeof fn === "function") return fn(s);
     return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   function precio(p) {
-    const f = typeof window.precioFinal === "function" ? window.precioFinal(p) : p.precio;
-    if (typeof window.formatearPrecio === "function") return window.formatearPrecio(f);
+    const precioFinalFn = globalSitio("precioFinal", null);
+    const f = typeof precioFinalFn === "function" ? precioFinalFn(p) : p.precio;
+    const formatearFn = globalSitio("formatearPrecio", null);
+    if (typeof formatearFn === "function") return formatearFn(f);
     return "$" + Number(f || 0).toLocaleString("es-AR");
   }
 
   function img(p) {
     const raw = p.imagenes && p.imagenes[0];
-    if (typeof window.optimizarImagenUrl === "function") return window.optimizarImagenUrl(raw) || "img/placeholder.jpg";
+    const fn = globalSitio("optimizarImagenUrl", null);
+    if (typeof fn === "function") return fn(raw) || "img/placeholder.jpg";
     return raw || "img/placeholder.jpg";
   }
 
   /* ------------------------------------------------------------------ */
   /* 2) ACCESO A LOS DATOS REALES DE LA TIENDA (nunca se inventan)      */
   /* ------------------------------------------------------------------ */
-  function productos() { return Array.isArray(window.TODOS_PRODUCTOS) ? window.TODOS_PRODUCTOS : []; }
+  function productos() {
+    const arr = globalSitio("TODOS_PRODUCTOS", []);
+    return Array.isArray(arr) ? arr : [];
+  }
   function activos() { return productos().filter((p) => p.activo); }
-  function nombreTienda() { return (window.CONFIG && window.CONFIG.nombreTienda) || "COTATO"; }
-  function whatsappNumero() { return window.CONFIG && window.CONFIG.whatsappNumero; }
+  function nombreTienda() {
+    const cfg = globalSitio("CONFIG", null);
+    return (cfg && cfg.nombreTienda) || "COTATO";
+  }
+  function whatsappNumero() {
+    const cfg = globalSitio("CONFIG", null);
+    return cfg && cfg.whatsappNumero;
+  }
   function catalogoListo() { return productos().length > 0; }
 
   function linkWa(mensaje) {
-    if (typeof window.linkWhatsApp === "function") return window.linkWhatsApp(whatsappNumero(), mensaje);
+    const fn = globalSitio("linkWhatsApp", null);
+    if (typeof fn === "function") return fn(whatsappNumero(), mensaje);
     const n = String(whatsappNumero() || "").replace(/\D/g, "");
     return n ? `https://wa.me/${n}?text=${encodeURIComponent(mensaje)}` : "https://wa.me/";
   }
@@ -136,9 +170,8 @@
   }
 
   function listaCategorias() {
-    if (Array.isArray(window.CATEGORIAS_CACHE) && window.CATEGORIAS_CACHE.length) {
-      return window.CATEGORIAS_CACHE.map((c) => c.nombre);
-    }
+    const cats = globalSitio("CATEGORIAS_CACHE", []);
+    if (Array.isArray(cats) && cats.length) return cats.map((c) => c.nombre);
     return [...new Set(activos().map((p) => p.categoria).filter(Boolean))];
   }
 
@@ -154,17 +187,20 @@
 
   function detectarProvincia(texto) {
     const t = normalizar(texto);
-    const lista = (window.PROVINCIAS_AR && window.PROVINCIAS_AR.length) ? window.PROVINCIAS_AR : PROVINCIAS_AR_LOCAL;
+    const listaSitio = globalSitio("PROVINCIAS_AR", null);
+    const lista = (Array.isArray(listaSitio) && listaSitio.length) ? listaSitio : PROVINCIAS_AR_LOCAL;
     return lista.find((prov) => t.includes(normalizar(prov))) || null;
   }
 
   function respuestaEnvio(provincia) {
-    if (typeof window.calcularEnvio !== "function") {
+    const calcularEnvioFn = globalSitio("calcularEnvio", null);
+    if (typeof calcularEnvioFn !== "function") {
       return `Hacemos envíos a todo el país. Contanos tu provincia o escribinos por WhatsApp y te confirmamos costo y tiempo estimado.`;
     }
-    const r = window.calcularEnvio(provincia, 1);
+    const r = calcularEnvioFn(provincia, 1);
     if (!r.ok) return r.motivo || "No tengo tarifa cargada para esa zona todavía. Te recomiendo consultar por WhatsApp.";
-    const gratisDesde = window.CONFIG && Number(window.CONFIG.envioGratisDesde);
+    const cfg = globalSitio("CONFIG", null);
+    const gratisDesde = cfg && Number(cfg.envioGratisDesde);
     let msg = r.gratis
       ? `Para ${provincia} el envío te sale <strong>gratis</strong> (superás el mínimo de compra).`
       : `Para ${provincia} el envío base cuesta <strong>${precioComoNumero(r.costo)}</strong> (el costo final puede variar según la cantidad de artículos).`;
@@ -175,7 +211,8 @@
   }
 
   function precioComoNumero(n) {
-    if (typeof window.formatearPrecio === "function") return window.formatearPrecio(n);
+    const fn = globalSitio("formatearPrecio", null);
+    if (typeof fn === "function") return fn(n);
     return "$" + Number(n || 0).toLocaleString("es-AR");
   }
 
@@ -266,7 +303,8 @@
 
     // Pagos
     if (contieneAlguna(t, ["pago", "pagos", "como pago", "cómo pago", "transferencia", "efectivo", "tarjeta", "cuotas", "mercado pago", "mercadopago"])) {
-      const alias = window.CONFIG && window.CONFIG.aliasCbu;
+      const cfgPago = globalSitio("CONFIG", null);
+      const alias = cfgPago && cfgPago.aliasCbu;
       let msg = `Aceptamos <strong>transferencia bancaria</strong>${alias ? " y otros medios de pago" : ""}. Una vez que confirmes tu pedido, te pasamos los datos para pagar.`;
       msg += ` Muchos de nuestros productos tienen un <strong>precio especial pagando con transferencia</strong>.`;
       return { html: msg };
@@ -472,9 +510,11 @@
       if (b.disabled) return;
       const p = productos().find((x) => x.id === b.dataset.add);
       if (!p) return;
-      if (typeof window.Carrito?.agregar === "function") {
-        window.Carrito.agregar(p, 1);
-        if (typeof window.mostrarToast === "function") window.mostrarToast("Agregado al carrito", "success");
+      const carrito = globalSitio("Carrito", null);
+      if (carrito && typeof carrito.agregar === "function") {
+        carrito.agregar(p, 1);
+        const toastFn = globalSitio("mostrarToast", null);
+        if (typeof toastFn === "function") toastFn("Agregado al carrito", "success");
         b.textContent = "✓ Agregado";
         setTimeout(() => (b.textContent = "Agregar"), 1400);
       }
