@@ -129,6 +129,13 @@ function promptWhatsapp(d) {
   // cuando no aplica, es imposible que lo use por error.
   const alias = d.estado === "pendiente" ? d.alias : "";
 
+  // Mismo criterio para el monto: solo tiene sentido mencionar plata cuando
+  // hay algo relacionado al pago (pendiente = falta pagar, pagado = se
+  // confirma lo cobrado). En preparación, enviado, entregado o cancelado no
+  // hay ninguna acción de pago en juego, así que ni se le muestra el total
+  // — así no puede "colarlo" en el mensaje aunque la regla se lo prohíba.
+  const mostrarTotal = d.estado === "pendiente" || d.estado === "pagado";
+
   return `${TONO_COTATO}
 
 Escribí un mensaje de WhatsApp para un cliente de COTATO sobre su pedido. Es de la tienda hacia el cliente.
@@ -138,7 +145,7 @@ Nombre del cliente: ${d.nombre || "(sin nombre)"}
 Número de pedido: ${d.numeroPedido}
 Estado actual: ${d.estado}
 Productos: ${d.productos}
-Total con envío: $${d.total}
+${mostrarTotal ? `Total con envío: $${d.total}` : ""}
 ${alias ? `Alias para transferir: ${alias}` : ""}
 ${d.esPrimeraCompra === true ? "Es su primera compra en la tienda." : ""}
 ${d.esPrimeraCompra === false ? `Ya hizo ${d.comprasPrevia} compra(s) antes.` : ""}
@@ -149,12 +156,12 @@ está pendiente de pago si el estado dice otra cosa, aunque el mensaje sea
 sobre un pedido o el cliente parezca interesado en comprar.
 
 QUÉ ESCRIBIR SEGÚN EL ESTADO (elegí la fila que corresponda)
-- "pendiente": pedile el comprobante de la transferencia. Si te pasé un alias, incluilo.
-- "pagado": confirmá que se registró el pago y que ya se está preparando. NO pidas ningún pago ni menciones alias.
-- "preparacion": contale que su pedido está en preparación. NO pidas pago ni menciones alias.
-- "enviado": avisale que ya salió el envío. NO pidas pago ni menciones alias.
-- "entregado": preguntale si lo recibió bien, en tono de cierre. NO pidas pago, NO menciones alias, NO lo invites a comprar de nuevo.
-- "cancelado": avisale con tono neutral y respetuoso que el pedido quedó cancelado, y que estás para lo que necesite. NO pidas pago, NO menciones alias, NO lo invites a completar la compra, NO insistas en que retome el pedido. Es un mensaje informativo, no una venta.
+- "pendiente": pedile el comprobante de la transferencia, mencionando el total. Si te pasé un alias, incluilo.
+- "pagado": confirmá que se registró el pago (podés mencionar el monto como respaldo). NO pidas ningún pago ni menciones alias.
+- "preparacion": contale que su pedido está en preparación. NO menciones montos, precios ni alias.
+- "enviado": avisale que ya salió el envío. NO menciones montos, precios ni alias.
+- "entregado": preguntale si lo recibió bien, en tono de cierre. NO menciones montos, precios ni alias, NO lo invites a comprar de nuevo.
+- "cancelado": avisale con tono neutral y respetuoso que el pedido quedó cancelado, y que estás para lo que necesite. NO menciones montos, precios ni alias, NO lo invites a completar la compra, NO insistas en que retome el pedido. Es un mensaje informativo, no una venta.
 
 OTRAS REGLAS
 - Un solo mensaje, listo para pegar en WhatsApp. Sin asteriscos de markdown, sin emojis salvo como mucho uno.
