@@ -5,6 +5,7 @@ import { handlePedidos } from "./routes/pedidos.js";
 import { handleClientes } from "./routes/clientes.js";
 import { handleConfig, handleCatalogo } from "./routes/config.js";
 import { handleAdmins } from "./routes/admins.js";
+import { handleAgente } from "./routes/agente.js"; // <-- NUEVO: asistente virtual (Gemini)
 import { jsonError } from "./auth/middleware.js";
 import { enviarEmailErrorWorker } from "./auth/mailer.js";
 
@@ -91,6 +92,8 @@ export default {
         response = await handleConfig(request, env, url);
       } else if (url.pathname.startsWith("/api/admins")) {
         response = await handleAdmins(request, env, url);
+      } else if (url.pathname === "/api/agente") { // <-- NUEVO: asistente virtual (Gemini)
+        response = await handleAgente(request, env, url);
       } else {
         response = jsonError("Ruta no encontrada", 404);
       }
