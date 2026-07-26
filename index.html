@@ -288,7 +288,31 @@
   padding: 0 1.1rem 1.1rem; font-size: .875rem; line-height: 1.55; color: #9ca3af;
 }
 
-  /* ==== Pantalla de carga inicial — versión estética ==== */
+/* ==== Herramientas de IA en el panel admin ==== */
+.ia-btn, .ia-btn-mini {
+  background: rgba(210,163,98,.14); border: 1px solid var(--laton);
+  color: var(--laton); border-radius: 8px; cursor: pointer;
+  font-weight: 600; transition: background .15s;
+}
+.ia-btn { padding: .45rem .9rem; font-size: .8rem; }
+.ia-btn-mini { padding: .2rem .5rem; font-size: .68rem; }
+.ia-btn:hover, .ia-btn-mini:hover { background: rgba(210,163,98,.26); }
+.ia-btn[disabled], .ia-btn-mini[disabled] { opacity: .5; cursor: default; }
+
+.ia-bloque {
+  background: rgba(210,163,98,.06); border: 1px dashed var(--laton);
+  border-radius: 12px; overflow: hidden;
+}
+.ia-bloque summary {
+  list-style: none; cursor: pointer; padding: .7rem .9rem;
+  font-size: .8rem; font-weight: 600; color: var(--laton);
+}
+.ia-bloque summary::-webkit-details-marker { display: none; }
+.ia-estado-ok   { color: #4ade80; }
+.ia-estado-error{ color: #f87171; }
+.ia-estado-load { color: var(--laton); }
+
+/* ==== Pantalla de carga inicial — versión estética ==== */
   #carga-inicial {
     /* Fondo OPACO: tiene que tapar el header y el footer mientras carga. */
     background:
@@ -1302,8 +1326,42 @@ img { display: block; max-width: 100%; }
     <form id="form-producto">
       <input type="hidden" id="pf-id">
       <div class="space-y-4">
+
+        <!-- CARGA ASISTIDA: pegás el texto del proveedor y la IA completa el formulario -->
+        <details class="ia-bloque">
+          <summary><i data-lucide="sparkles" style="width:14px;height:14px;display:inline;vertical-align:-2px"></i> Cargar desde texto del proveedor</summary>
+          <div style="padding:.75rem .9rem .9rem">
+            <p class="text-xs text-gray-500 mb-2">Pegá la descripción tal como te la mandaron (WhatsApp, mail, catálogo) y la IA completa los campos. Después revisá y corregí lo que haga falta.</p>
+            <textarea id="pf-ia-importar" rows="3" placeholder="Ej: bolso mod. NORD-22 cuero sintetico negro, cierre metalico dorado, bolsillo interno c/ cierre, 30x25cm, $45000 c/u" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></textarea>
+            <button type="button" id="btn-ia-importar" class="ia-btn mt-2">Completar formulario</button>
+            <span id="ia-importar-estado" class="text-xs ml-2"></span>
+          </div>
+        </details>
+
         <div><label class="block text-xs uppercase text-gray-400 mb-1">Nombre *</label><input type="text" id="pf-nombre" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs uppercase text-gray-400 mb-1">Descripción</label><textarea id="pf-desc" rows="3" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></textarea></div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs uppercase text-gray-400">Descripción</label>
+            <button type="button" id="btn-ia-descripcion" class="ia-btn-mini" title="Redactar con IA a partir del nombre y la categoría">
+              <i data-lucide="sparkles" style="width:12px;height:12px;display:inline;vertical-align:-1px"></i> Redactar
+            </button>
+          </div>
+          <textarea id="pf-desc" rows="3" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></textarea>
+          <div class="flex items-center gap-2 mt-1">
+            <input type="text" id="pf-ia-notas" placeholder="Notas para la IA (material, colores, medidas...)" class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs">
+          </div>
+          <span id="ia-desc-estado" class="text-xs"></span>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs uppercase text-gray-400">Texto alternativo de la foto</label>
+            <button type="button" id="btn-ia-alt" class="ia-btn-mini" title="Sugerir texto alternativo para buscadores y lectores de pantalla">
+              <i data-lucide="sparkles" style="width:12px;height:12px;display:inline;vertical-align:-1px"></i> Sugerir
+            </button>
+          </div>
+          <input type="text" id="pf-alt" maxlength="125" placeholder="Describe la foto para buscadores y accesibilidad" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+          <span id="ia-alt-estado" class="text-xs"></span>
+        </div>
         <div>
           <label class="block text-xs uppercase text-gray-400 mb-1">Categoría *</label>
           <select id="pf-categoria" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
@@ -1940,7 +1998,7 @@ function productCardHTML(p) {
       <i data-lucide="heart" style="width:16px;height:16px${favActivo ? ";color:#ef4444" : ""}" class="${favActivo ? "fill-current" : ""}"></i>
     </button>
     <div class="pc-img h-48 bg-gray-900 flex items-center justify-center p-4 cursor-pointer abrir-producto" data-id="${p.id}">
-      <img class="h-full object-contain" loading="lazy" src="${optimizarImagenUrl(p.imagenes?.[0]) || 'img/placeholder.jpg'}" alt="${escapeHTML(p.nombre)}" onerror="this.onerror=null;this.src='img/placeholder.jpg'">
+      <img class="h-full object-contain" loading="lazy" src="${optimizarImagenUrl(p.imagenes?.[0]) || 'img/placeholder.jpg'}" alt="${escapeHTML(p.altImagen || p.nombre)}" onerror="this.onerror=null;this.src='img/placeholder.jpg'">
     </div>
     <div class="pc-body p-4 flex flex-col flex-1">
       <div class="pc-marca text-xs text-gray-500 uppercase">${escapeHTML(p.marca || "")}</div>
@@ -3780,6 +3838,11 @@ function abrirFormularioProducto() {
   document.getElementById("form-producto").reset();
   document.getElementById("pf-id").value = "";
   document.getElementById("modal-producto-titulo").textContent = "Nuevo producto";
+  // Campos auxiliares de IA: siempre en blanco al empezar de cero.
+  ["ia-desc-estado", "ia-alt-estado", "ia-importar-estado"].forEach((id) => {
+    const el = document.getElementById(id); if (el) el.textContent = "";
+  });
+  document.querySelector(".ia-bloque")?.removeAttribute("open");
   document.getElementById("pf-activo").checked = true;
   document.getElementById("pf-transferencia").checked = true;
   document.getElementById("pf-categoria-nueva").style.display = "none";
@@ -3795,6 +3858,7 @@ function abrirEdicionProducto(id) {
   document.getElementById("pf-id").value = p.id;
   document.getElementById("pf-nombre").value = p.nombre || "";
   document.getElementById("pf-desc").value = p.descripcion || "";
+  document.getElementById("pf-alt").value = p.altImagen || "";
   const selectCat = document.getElementById("pf-categoria");
   const existeEnLista = [...selectCat.options].some((o) => o.value === p.categoria);
   if (p.categoria && existeEnLista) {
@@ -4048,6 +4112,126 @@ function initEnviosAdminListenersOnce() {
   });
 }
 
+/* ---------------------------------------------------------------------- */
+/* 15.b) ADMIN: HERRAMIENTAS DE IA                                        */
+/* ---------------------------------------------------------------------- */
+/* Redacta descripciones, sugiere texto alternativo y completa el formulario
+ * a partir del texto del proveedor. Todo es SUGERENCIA: se escribe en los
+ * campos para que lo revises y edites. Nada se guarda solo, y la IA nunca
+ * toca precio ni stock (el precio detectado se muestra aparte, para que lo
+ * confirmes vos). */
+
+/** Muestra el estado de una operación de IA al lado del botón. */
+function iaEstado(idSpan, texto, tipo = "load") {
+  const el = document.getElementById(idSpan);
+  if (!el) return;
+  el.textContent = texto;
+  el.className = "text-xs " + (tipo === "ok" ? "ia-estado-ok" : tipo === "error" ? "ia-estado-error" : "ia-estado-load");
+  if (tipo === "ok") setTimeout(() => { if (el.textContent === texto) el.textContent = ""; }, 4000);
+}
+
+/** Llama a /api/admin/ia manejando el estado del botón y los errores. */
+async function pedirIA(cuerpo, { boton, estado, textoCargando }) {
+  const btn = document.getElementById(boton);
+  const textoOriginal = btn ? btn.innerHTML : "";
+  if (btn) { btn.disabled = true; }
+  iaEstado(estado, textoCargando);
+  try {
+    const r = await api("/api/admin/ia", { method: "POST", body: cuerpo, timeoutMs: 25000 });
+    iaEstado(estado, "Listo — revisá y ajustá lo que quieras", "ok");
+    return r;
+  } catch (e) {
+    console.error(e);
+    const msg = e?.message === "timeout"
+      ? "Tardó demasiado. Probá de nuevo."
+      : (e?.message || "No se pudo generar. Probá de nuevo.");
+    iaEstado(estado, msg, "error");
+    return null;
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = textoOriginal; lucide.createIcons(); }
+  }
+}
+
+function initIAAdminListenersOnce() {
+  /* ---- Redactar descripción ---- */
+  document.getElementById("btn-ia-descripcion")?.addEventListener("click", async () => {
+    const nombre = document.getElementById("pf-nombre").value.trim();
+    const notas = document.getElementById("pf-ia-notas").value.trim();
+    if (!nombre && !notas) {
+      iaEstado("ia-desc-estado", "Escribí primero el nombre del producto o algunas notas.", "error");
+      return;
+    }
+    const selectCat = document.getElementById("pf-categoria");
+    const categoria = selectCat.value === "__nueva__"
+      ? document.getElementById("pf-categoria-nueva").value.trim()
+      : selectCat.value;
+
+    const r = await pedirIA(
+      { accion: "descripcion", nombre, categoria, marca: document.getElementById("pf-marca").value.trim(), notas },
+      { boton: "btn-ia-descripcion", estado: "ia-desc-estado", textoCargando: "Redactando..." }
+    );
+    if (r?.descripcion) document.getElementById("pf-desc").value = r.descripcion;
+  });
+
+  /* ---- Sugerir texto alternativo de la foto ---- */
+  document.getElementById("btn-ia-alt")?.addEventListener("click", async () => {
+    const nombre = document.getElementById("pf-nombre").value.trim();
+    if (!nombre) {
+      iaEstado("ia-alt-estado", "Cargá primero el nombre del producto.", "error");
+      return;
+    }
+    const selectCat = document.getElementById("pf-categoria");
+    const categoria = selectCat.value === "__nueva__"
+      ? document.getElementById("pf-categoria-nueva").value.trim()
+      : selectCat.value;
+
+    const r = await pedirIA(
+      { accion: "alt", nombre, categoria, descripcion: document.getElementById("pf-desc").value.trim() },
+      { boton: "btn-ia-alt", estado: "ia-alt-estado", textoCargando: "Pensando..." }
+    );
+    if (r?.alt) document.getElementById("pf-alt").value = r.alt;
+  });
+
+  /* ---- Carga asistida desde el texto del proveedor ---- */
+  document.getElementById("btn-ia-importar")?.addEventListener("click", async () => {
+    const texto = document.getElementById("pf-ia-importar").value.trim();
+    if (texto.length < 15) {
+      iaEstado("ia-importar-estado", "Pegá un texto un poco más largo.", "error");
+      return;
+    }
+    const categorias = categoriasAdminCache.map((c) => c.nombre);
+
+    const r = await pedirIA(
+      { accion: "importar", texto, categorias },
+      { boton: "btn-ia-importar", estado: "ia-importar-estado", textoCargando: "Interpretando..." }
+    );
+    if (!r) return;
+
+    // Se completan solo los campos que estén VACÍOS, para no pisar lo que ya
+    // hayas escrito a mano. El precio nunca se aplica solo: se avisa aparte.
+    const setSiVacio = (id, valor) => {
+      const el = document.getElementById(id);
+      if (el && valor && !el.value.trim()) el.value = valor;
+    };
+    setSiVacio("pf-nombre", r.nombre);
+    setSiVacio("pf-desc", r.descripcion);
+    setSiVacio("pf-marca", r.marca);
+
+    if (r.categoria) {
+      const selectCat = document.getElementById("pf-categoria");
+      if (!selectCat.value && [...selectCat.options].some((o) => o.value === r.categoria)) {
+        selectCat.value = r.categoria;
+      }
+    }
+
+    if (r.precioDetectado) {
+      iaEstado("ia-importar-estado",
+        `Detecté un precio de $${Number(r.precioDetectado).toLocaleString("es-AR")} en el texto — cargalo a mano si es correcto.`,
+        "ok");
+    }
+  });
+}
+
 function initProductosAdminListenersOnce() {
   document.getElementById("btn-nuevo-producto").addEventListener("click", abrirFormularioProducto);
   document.getElementById("btn-cerrar-modal-producto").addEventListener("click", () => cerrarModal("modal-producto"));
@@ -4146,6 +4330,7 @@ function initProductosAdminListenersOnce() {
       const data = {
         nombre: document.getElementById("pf-nombre").value.trim(),
         descripcion: document.getElementById("pf-desc").value.trim(),
+        altImagen: document.getElementById("pf-alt").value.trim(),
         categoria: categoriaFinal,
         marca: document.getElementById("pf-marca").value.trim(),
         precio: numMiles(document.getElementById("pf-precio")),
@@ -4687,6 +4872,7 @@ async function initGlobal() {
   initAdministradoresListenersOnce();
   initCategoriasAdminListenersOnce();
   initProductosAdminListenersOnce();
+  initIAAdminListenersOnce();
   initPedidosAdminListenersOnce();
   initConfigAdminListenersOnce();
   initEnviosAdminListenersOnce();
