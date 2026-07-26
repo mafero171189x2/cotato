@@ -997,7 +997,15 @@ img { display: block; max-width: 100%; }
             <h2 class="font-semibold text-sm flex items-center gap-2" style="color:var(--laton)">
               <i data-lucide="sparkles" style="width:15px;height:15px"></i> Analizar mi negocio
             </h2>
-            <span class="text-xs text-gray-500" id="ia-analisis-periodo"></span>
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">Período:</label>
+              <select id="ia-analisis-dias" class="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs">
+                <option value="30">Últimos 30 días</option>
+                <option value="90" selected>Últimos 3 meses</option>
+                <option value="180">Últimos 6 meses</option>
+                <option value="365">Último año</option>
+              </select>
+            </div>
           </div>
 
           <div class="flex gap-2 flex-wrap mb-3">
@@ -4262,21 +4270,63 @@ function iaMostrarSalida(html) {
   lucide.createIcons();
 }
 
-/** Llama al análisis mandando los datos que el panel ya tiene en memoria. */
+/** Trae los pedidos del período elegido, directo de la API.
+ *
+ *  Antes esto usaba pedidosAdminCache, pero esa caché tiene SOLO el mes que
+ *  estás mirando en la pantalla de Pedidos: si no vendiste este mes, el
+ *  análisis se quedaba sin datos aunque tuvieras ventas en meses anteriores.
+ *  Ahora el análisis pide lo suyo, paginando hasta cubrir el período. */
+async function cargarPedidosParaAnalisis(dias) {
+  const hasta = new Date();
+  const desde = new Date(hasta.getTime() - dias * 86400000);
+  const TOPE = 600;              // mismo tope que acepta el Worker
+  const PAGINA = 100;
+  let todos = [];
+
+  for (let offset = 0; offset < TOPE; offset += PAGINA) {
+    const params = new URLSearchParams({
+      admin: "1",
+      desde: desde.toISOString(),
+      hasta: hasta.toISOString(),
+      limite: String(PAGINA),
+      offset: String(offset)
+    });
+    const { pedidos, hayMas } = await api(`/api/pedidos?${params.toString()}`, { timeoutMs: 15000 });
+    todos = todos.concat(pedidos || []);
+    if (!hayMas || !pedidos?.length) break;
+  }
+  return todos;
+}
+
+/** Llama al análisis con los datos del período elegido. */
 async function pedirAnalisis(accion, extra = {}) {
   const botones = document.querySelectorAll("[data-analisis], #btn-ia-preguntar");
   botones.forEach((b) => (b.disabled = true));
-  iaMostrarSalida(`<p class="ia-estado-load text-sm">Analizando tus datos...</p>`);
+  iaMostrarSalida(`<p class="ia-estado-load text-sm">Buscando tus pedidos...</p>`);
 
   try {
+    const dias = Number(document.getElementById("ia-analisis-dias")?.value) || 90;
+    const crudos = await cargarPedidosParaAnalisis(dias);
+
+    if (!crudos.length) {
+      iaMostrarSalida(`<p class="text-sm text-gray-400">No encontré pedidos en los últimos ${dias} días. Probá ampliando el período con el selector de arriba.</p>`);
+      return null;
+    }
+
+    iaMostrarSalida(`<p class="ia-estado-load text-sm">Analizando ${crudos.length} pedido${crudos.length === 1 ? "" : "s"}...</p>`);
+
     // Se mandan solo los campos necesarios, no el objeto entero: menos datos
     // viajando y menos tokens consumidos.
-    const pedidos = pedidosAdminCache.map((p) => ({
+    const pedidos = crudos.map((p) => ({
       numeroPedido: p.numeroPedido, estado: p.estado, fecha: p.fecha,
       total: p.total, envio: p.envio,
       cliente: { provincia: p.cliente?.provincia, telefono: p.cliente?.telefono, direccion: p.cliente?.direccion },
       productos: (p.productos || []).map((i) => ({ productoId: i.productoId, nombre: i.nombre, cantidad: i.cantidad, precio: i.precio }))
     }));
+
+    // Los productos sí salen de la caché del panel: es el catálogo completo,
+    // no depende del mes. Si todavía no se cargó, se pide.
+    if (!productosAdminCache.length) await cargarProductosAdmin();
     const productos = productosAdminCache.map((p) => ({
       id: p.id, nombre: p.nombre, categoria: p.categoria, stock: p.stock, activo: p.activo
     }));
@@ -4288,7 +4338,7 @@ async function pedirAnalisis(accion, extra = {}) {
     });
   } catch (e) {
     console.error(e);
-    const msg = e?.message === "timeout" ? "Tardó demasiado. Probá de nuevo." : (e?.message || "No se pudo analizar.");
+    const msg = e?.message === "timeout" ? "Tardó demasiado. Probá con un período más corto." : (e?.message || "No se pudo analizar.");
     iaMostrarSalida(`<p class="ia-estado-error text-sm">${escapeHTML(msg)}</p>`);
     return null;
   } finally {
