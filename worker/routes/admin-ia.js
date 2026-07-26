@@ -121,6 +121,33 @@ Respondé ÚNICAMENTE con un objeto JSON válido, sin markdown ni texto alrededo
 {"nombre":"","descripcion":"","categoria":"","marca":"","precio_detectado":null}`;
 }
 
+function promptWhatsapp(d) {
+  return `${TONO_COTATO}
+
+Escribí un mensaje de WhatsApp para un cliente de COTATO sobre su pedido. Es de la tienda hacia el cliente.
+
+DATOS DEL PEDIDO (los únicos hechos reales — no agregues nada que no esté acá)
+Nombre del cliente: ${d.nombre || "(sin nombre)"}
+Número de pedido: ${d.numeroPedido}
+Estado actual: ${d.estado}
+Productos: ${d.productos}
+Total con envío: $${d.total}
+${d.alias ? `Alias para transferir: ${d.alias}` : ""}
+${d.esPrimeraCompra === true ? "Es su primera compra en la tienda." : ""}
+${d.esPrimeraCompra === false ? `Ya hizo ${d.comprasPrevia} compra(s) antes.` : ""}
+
+REGLAS
+- Un solo mensaje, listo para pegar en WhatsApp. Sin asteriscos de markdown, sin emojis salvo como mucho uno.
+- Si es su primera compra, dale una bienvenida breve y genuina (sin exagerar).
+- Si ya compró antes, un tono más directo y cercano, como a alguien conocido — sin decir explícitamente "como ya sos cliente".
+- Si el estado es "pendiente" y hay alias, pedí el comprobante de transferencia con el alias.
+- Si el estado es "pagado", "preparacion" o "enviado", confirmá eso puntualmente, sin inventar plazos que no te di.
+- No inventes descuentos, promociones ni plazos de envío que no estén en los datos.
+- Máximo 4 oraciones.
+
+Respondé ÚNICAMENTE con el texto del mensaje, sin comillas ni explicaciones.`;
+}
+
 /* ------------------------------------------------------------------------ */
 /* LLAMADA A GEMINI                                                          */
 /* ------------------------------------------------------------------------ */
@@ -231,6 +258,26 @@ export async function handleAdminIA(request, env, url) {
         marca: String(d.marca || "").slice(0, 100),
         precioDetectado: precio
       });
+    }
+
+    /* ---- 4) Mensaje de WhatsApp personalizado para un pedido ---- */
+    if (accion === "whatsapp") {
+      const d = {
+        nombre: String(body.nombre || "").slice(0, 120),
+        numeroPedido: String(body.numeroPedido || "").slice(0, 40),
+        estado: String(body.estado || "").slice(0, 30),
+        productos: String(body.productos || "").slice(0, 600),
+        total: Number(body.total) || 0,
+        alias: String(body.alias || "").slice(0, 100),
+        // esPrimeraCompra puede venir true/false/undefined: si no se sabe,
+        // no se le pide a la IA que asuma nada al respecto.
+        esPrimeraCompra: typeof body.esPrimeraCompra === "boolean" ? body.esPrimeraCompra : null,
+        comprasPrevia: Number(body.comprasPrevia) || 0
+      };
+      if (!d.numeroPedido || !d.estado) return jsonError("Faltan datos del pedido", 400);
+
+      const texto = await pedirAGemini(env, promptWhatsapp(d), { maxTokens: 350 });
+      return json({ mensaje: texto.replace(/^["']|["']$/g, "").slice(0, 900) });
     }
 
     return jsonError("Acción no reconocida", 400);
