@@ -1020,6 +1020,18 @@ img { display: block; max-width: 100%; }
           </div>
 
           <div id="ia-analisis-salida" class="text-sm" style="display:none"></div>
+
+          <div class="h-px bg-gray-800 my-4"></div>
+
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <h3 class="font-semibold text-sm flex items-center gap-2" style="color:var(--laton)">
+              <i data-lucide="message-circle-question" style="width:14px;height:14px"></i> Qué preguntan en el chat
+            </h3>
+            <button type="button" id="btn-cargar-insights" class="ia-btn-mini">Actualizar</button>
+          </div>
+          <p class="text-xs text-gray-500 mb-2">Preguntas que el asistente NO pudo responder con datos concretos (últimos 14 días) — te dice qué le falta al catálogo o a la FAQ.</p>
+          <div id="insights-resumen" class="text-xs text-gray-500 mb-2"></div>
+          <div id="insights-lista"></div>
         </div>
       </div>
 
@@ -3532,6 +3544,7 @@ onAuthStateChanged(auth, (user) => { if (!user && parseHash().vista === "admin")
 /* 13) ADMIN: RESUMEN                                                     */
 /* ---------------------------------------------------------------------- */
 async function cargarResumen() {
+  cargarInsightsChat(); // no bloqueante: se carga en paralelo, no atrasa las tarjetas
   // Productos: se cuentan desde la caché que la tabla YA cargó. Cero lecturas
   // extra y no puede fallar.
   const totalProductos = productosAdminCache.length;
@@ -4346,6 +4359,33 @@ async function pedirAnalisis(accion, extra = {}) {
   }
 }
 
+/** Trae y muestra qué preguntó la gente en el chat que no se pudo resolver. */
+async function cargarInsightsChat() {
+  const cont = document.getElementById("insights-lista");
+  const resumen = document.getElementById("insights-resumen");
+  if (!cont) return;
+  resumen.textContent = "Cargando...";
+  cont.innerHTML = "";
+  try {
+    const r = await api("/api/chat-insights/resumen?dias=14", { timeoutMs: 10000 });
+    if (!r.totalPreguntas) {
+      resumen.textContent = "Todavía no hay preguntas registradas en el chat.";
+      return;
+    }
+    resumen.textContent = `${r.totalPreguntas} preguntas en los últimos ${r.dias} días — ${r.porcentajeResuelto ?? "—"}% resueltas con datos concretos.`;
+    if (!r.noResueltasAgrupadas.length) {
+      cont.innerHTML = `<p class="text-xs text-gray-500">No hay preguntas sin resolver — buena señal.</p>`;
+      return;
+    }
+    cont.innerHTML = `<ul class="ia-lista">${r.noResueltasAgrupadas.map((g) =>
+      `<li><span class="ia-tag alerta">${g.veces}×</span>${escapeHTML(g.ejemplo)}</li>`
+    ).join("")}</ul>`;
+  } catch (e) {
+    console.error(e);
+    resumen.textContent = "No se pudieron cargar los insights.";
+  }
+}
+
 function initAnalisisAdminListenersOnce() {
   document.querySelectorAll("[data-analisis]").forEach((btn) => btn.addEventListener("click", async () => {
     const tipo = btn.dataset.analisis;
@@ -4387,6 +4427,8 @@ function initAnalisisAdminListenersOnce() {
   document.getElementById("ia-analisis-pregunta")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); preguntar(); }
   });
+
+  document.getElementById("btn-cargar-insights")?.addEventListener("click", cargarInsightsChat);
 }
 
 function initIAAdminListenersOnce() {
@@ -4765,6 +4807,19 @@ function verDetallePedido(id) {
       ${linkWhatsappPedido(p) ? `<a id="link-wa-pedido" href="${linkWhatsappPedido(p)}" target="_blank" class="flex-1 py-2.5 rounded-lg font-semibold text-center flex items-center justify-center gap-2" style="background:#25d366;color:#06210f"><i data-lucide="message-circle" style="width:16px;height:16px"></i>WhatsApp</a>` : `<span class="flex-1 text-xs text-gray-500 flex items-center justify-center">Sin teléfono cargado</span>`}
       <button id="btn-guardar-estado-pedido" type="button" class="flex-1 py-2.5 rounded-lg font-semibold" style="background:var(--btn-fondo);color:var(--btn-texto)">Guardar cambios</button>
     </div>
+    ${linkWhatsappPedido(p) ? `
+    <button id="btn-ia-whatsapp" type="button" class="ia-btn w-full mt-2 flex items-center justify-center gap-1.5">
+      <i data-lucide="sparkles" style="width:13px;height:13px"></i> Personalizar mensaje con IA
+    </button>
+    <div id="ia-whatsapp-bloque" style="display:none" class="mt-2">
+      <textarea id="ia-whatsapp-texto" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"></textarea>
+      <div class="flex gap-2 mt-2">
+        <a id="ia-whatsapp-usar" href="#" target="_blank" class="flex-1 py-2 rounded-lg font-semibold text-center text-sm" style="background:#25d366;color:#06210f">Abrir WhatsApp con este texto</a>
+        <button id="ia-whatsapp-descartar" type="button" class="px-3 py-2 rounded-lg text-sm border border-gray-700 text-gray-300">Volver al original</button>
+      </div>
+    </div>
+    <span id="ia-whatsapp-estado" class="text-xs"></span>
+    ` : ""}
     <button id="btn-notificar-pedido" type="button" class="w-full mt-3 py-2.5 rounded-lg font-medium border flex items-center justify-center gap-2 text-sm" style="border-color:var(--texto)55;color:var(--texto)"><i data-lucide="mail" style="width:15px;height:15px"></i>Enviar aviso por mail al cliente (estado actual: ${etiquetaEstado(p.estado)})</button>
   `;
   cont.querySelector("#cerrar-detalle-pedido").addEventListener("click", () => cerrarModal("modal-pedido"));
@@ -4784,6 +4839,76 @@ function verDetallePedido(id) {
   };
   inputEnvio?.addEventListener("input", refrescarTotales);
   refrescarTotales();
+
+  /* ---- Personalizar mensaje de WhatsApp con IA ---- */
+  cont.querySelector("#btn-ia-whatsapp")?.addEventListener("click", async () => {
+    const btn = cont.querySelector("#btn-ia-whatsapp");
+    const bloque = cont.querySelector("#ia-whatsapp-bloque");
+    const estadoEl = cont.querySelector("#ia-whatsapp-estado");
+    btn.disabled = true;
+    estadoEl.textContent = "";
+    iaEstado("ia-whatsapp-estado", "Redactando...");
+
+    try {
+      // "Primera compra" se calcula con lo que el panel tiene cargado ahora
+      // mismo (el mes que estás mirando en Pedidos). No es el historial
+      // completo del cliente — es una estimación best-effort, no un dato
+      // certero, así que si no hay margen para confiar en el número, se
+      // manda null y la IA no asume nada al respecto.
+      const tel = String(p.cliente?.telefono || "").replace(/\D/g, "");
+      let esPrimeraCompra = null, comprasPrevia = 0;
+      if (tel) {
+        const otrosDelMismoTel = pedidosAdminCache.filter((x) =>
+          x.id !== p.id && x.estado !== "cancelado" &&
+          String(x.cliente?.telefono || "").replace(/\D/g, "") === tel
+        );
+        comprasPrevia = otrosDelMismoTel.length;
+        esPrimeraCompra = comprasPrevia === 0;
+      }
+
+      const productosTxt = p.productos.map((i) => `${i.cantidad}x ${i.nombre}`).join(", ");
+      const r = await api("/api/admin/ia", {
+        method: "POST",
+        timeoutMs: 20000,
+        body: {
+          accion: "whatsapp",
+          nombre: p.cliente?.nombre || "",
+          numeroPedido: p.numeroPedido,
+          estado: cont.querySelector("#select-estado-pedido").value,
+          productos: productosTxt,
+          total: (Number(p.total) || 0) + Math.max(0, numMiles(cont.querySelector("#input-envio-pedido") || { value: "" })),
+          alias: CONFIG.aliasCbu || "",
+          esPrimeraCompra,
+          comprasPrevia
+        }
+      });
+
+      cont.querySelector("#ia-whatsapp-texto").value = r.mensaje;
+      bloque.style.display = "block";
+      const tel2 = normalizarWhatsapp(p.cliente?.telefono || "");
+      cont.querySelector("#ia-whatsapp-usar").href = linkWhatsApp(tel2, r.mensaje);
+      iaEstado("ia-whatsapp-estado",
+        esPrimeraCompra === null ? "Listo" : (esPrimeraCompra ? "Detecté que es su primera compra" : `Detecté ${comprasPrevia} compra(s) previa(s) este mes`),
+        "ok");
+    } catch (e) {
+      console.error(e);
+      iaEstado("ia-whatsapp-estado", e?.message || "No se pudo generar el mensaje", "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Si edita el texto sugerido a mano, el link se actualiza con lo editado.
+  cont.querySelector("#ia-whatsapp-texto")?.addEventListener("input", (e) => {
+    const tel = normalizarWhatsapp(p.cliente?.telefono || "");
+    const link = cont.querySelector("#ia-whatsapp-usar");
+    if (link) link.href = linkWhatsApp(tel, e.target.value);
+  });
+
+  cont.querySelector("#ia-whatsapp-descartar")?.addEventListener("click", () => {
+    cont.querySelector("#ia-whatsapp-bloque").style.display = "none";
+    cont.querySelector("#ia-whatsapp-estado").textContent = "";
+  });
   cont.querySelector("#btn-guardar-estado-pedido").addEventListener("click", async () => {
     const nuevoEstado = cont.querySelector("#select-estado-pedido").value;
     const btnGuardar = cont.querySelector("#btn-guardar-estado-pedido");
