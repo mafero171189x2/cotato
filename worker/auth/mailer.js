@@ -151,6 +151,53 @@ export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido
 }
 
 // ---------------------------------------------------------------------------
+// Aviso de PEDIDO CANCELADO POR EL CLIENTE — automático, igual que el aviso
+// de pedido nuevo. Se dispara solo cuando es el CLIENTE quien cancela su
+// propio pedido desde "Mi cuenta" (si cancelás vos desde el panel admin, no
+// hace falta que te avises a vos mismo).
+// Se manda al mismo email de contacto configurado en la tienda (o al de
+// Gmail si no hay uno cargado) — igual que enviarEmailNuevoPedidoAdmin.
+// ---------------------------------------------------------------------------
+export async function enviarEmailPedidoCanceladoAdmin(env, destinatarioEmail, pedido) {
+  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
+    console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo avisar la cancelación");
+    return false;
+  }
+  const listaItems = pedido.items.map((i) => `${Number(i.cantidad) || 0}x ${esc(i.nombre)} — $${(i.precio * i.cantidad).toLocaleString("es-AR")}`).join("<br>");
+  try {
+    await WorkerMailer.send(
+      {
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        authType: "login",
+        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
+      },
+      {
+        from: { name: "COTATO", email: env.GMAIL_USER },
+        to: destinatarioEmail,
+        subject: `❌ Pedido cancelado por el cliente ${esc(pedido.numeroPedido)}`,
+        html: `
+          <p>Un cliente canceló su propio pedido desde "Mi cuenta".</p>
+          <p><strong>Pedido:</strong> ${esc(pedido.numeroPedido)}<br>
+          <strong>Cliente:</strong> ${esc(pedido.clienteNombre)}<br>
+          <strong>Teléfono:</strong> ${esc(pedido.clienteTelefono) || "—"}</p>
+          <p><strong>Productos:</strong><br>${listaItems}</p>
+          <p><strong>Subtotal:</strong> $${pedido.total.toLocaleString("es-AR")}<br>
+          <strong>Envío:</strong> $${pedido.envio.toLocaleString("es-AR")}<br>
+          <strong>Total:</strong> $${(pedido.total + pedido.envio).toLocaleString("es-AR")}</p>
+          <p>El stock ya se repuso automáticamente. No hace falta que hagas nada, es solo un aviso.</p>
+        `
+      }
+    );
+    return true;
+  } catch (err) {
+    console.error("Error avisando cancelación vía Gmail SMTP:", err);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Alerta de error inesperado — se dispara sola desde el catch-all de
 // worker/index.js, no requiere que nadie la llame a mano. Sirve para
 // enterarte de un problema real sin tener que estar mirando los logs.
