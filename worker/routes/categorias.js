@@ -38,6 +38,10 @@ export async function handleCategorias(request, env, url) {
     const existe = await env.DB.prepare("SELECT id FROM categorias WHERE id = ?").bind(id).first();
     if (!existe) return jsonError("Categoría no encontrada", 404);
 
+    // Validar que no exista otra categoría con ese nombre (case-insensitive)
+    const duplicada = await env.DB.prepare("SELECT id FROM categorias WHERE lower(nombre) = lower(?) AND id != ?").bind(nombre, id).first();
+    if (duplicada) return jsonError("Ya existe una categoría con ese nombre", 409);
+
     await env.DB.prepare("UPDATE categorias SET nombre = ?, orden = ? WHERE id = ?")
       .bind(nombre, Math.max(0, Math.floor(Number(b.orden) || 0)), id).run();
     const row = await env.DB.prepare("SELECT * FROM categorias WHERE id = ?").bind(id).first();
