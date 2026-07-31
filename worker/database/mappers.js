@@ -3,6 +3,12 @@
 
 export function mapProducto(row) {
   if (!row) return null;
+  let imagenes = [];
+  try {
+    imagenes = JSON.parse(row.imagenes || "[]");
+  } catch (_) {
+    imagenes = [];
+  }
   return {
     id: row.id,
     nombre: row.nombre,
@@ -19,7 +25,7 @@ export function mapProducto(row) {
     porcentajeDescuento: row.porcentaje_descuento,
     activo: !!row.activo,
     precioTransferencia: row.precio_transferencia === null || row.precio_transferencia === undefined ? true : !!row.precio_transferencia,
-    imagenes: JSON.parse(row.imagenes || "[]"),
+    imagenes,
     cantidadVendida: row.cantidad_vendida,
     fechaPublicacion: row.fecha_publicacion
   };
