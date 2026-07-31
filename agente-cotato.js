@@ -745,7 +745,16 @@
     // ve una promesa sin nada abajo. Si el texto prometía productos y no
     // hay ninguno real para mostrar, se descarta ese texto y se reemplaza
     // por uno honesto — nunca se le muestra al cliente una promesa vacía.
-    const prometioProductos = data.accion === "productos" || data.accion === "comparar";
+    //
+    // Dos capas de detección, porque no alcanza con mirar "accion":
+    //  1) Gemini DECLARÓ accion:"productos"/"comparar" pero no cumplió.
+    //  2) Gemini NO lo declaró, pero el TEXTO igual promete algo (esto pasa:
+    //     el campo "accion" y el texto libre los redacta el mismo modelo
+    //     por separado, y pueden contradecirse entre sí sin que se note
+    //     mirando un solo campo).
+    const prometioPorAccion = data.accion === "productos" || data.accion === "comparar";
+    const prometioPorTexto = /\b(te muestro|encontr[eé]|ac[aá] ten[eé]s|estas? opcion|estos? producto|mir[aá] est|te paso (est|algun)|te dejo)/i.test(data.respuesta);
+    const prometioProductos = prometioPorAccion || prometioPorTexto;
     const cumplioLaPromesa = data.accion === "comparar" ? elegidos.length >= 2 : elegidos.length > 0;
 
     if (prometioProductos && !cumplioLaPromesa) {
