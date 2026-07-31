@@ -4203,13 +4203,21 @@ function iaEstado(idSpan, texto, tipo = "load") {
 }
 
 /** Llama a /api/admin/ia manejando el estado del botón y los errores. */
-async function pedirIA(cuerpo, { boton, estado, textoCargando }) {
+async function pedirIA(cuerpo, { boton, estado, textoCargando, campoEsperado }) {
   const btn = document.getElementById(boton);
   const textoOriginal = btn ? btn.innerHTML : "";
   if (btn) { btn.disabled = true; }
   iaEstado(estado, textoCargando);
   try {
     const r = await api("/api/admin/ia", { method: "POST", body: cuerpo, timeoutMs: 25000 });
+    // La IA respondió (HTTP 200) no es lo mismo que "generó algo útil". Si el
+    // campo que se supone que trae el resultado viene vacío, no tiene sentido
+    // decir "Listo" — el campo del formulario se va a quedar sin cambios y
+    // el usuario no va a entender por qué. Se avisa como lo que es.
+    if (campoEsperado && !String(r?.[campoEsperado] || "").trim()) {
+      iaEstado(estado, "No se generó texto. Probá de nuevo o agregá más detalle.", "error");
+      return null;
+    }
     iaEstado(estado, "Listo — revisá y ajustá lo que quieras", "ok");
     return r;
   } catch (e) {
@@ -4447,7 +4455,7 @@ function initIAAdminListenersOnce() {
 
     const r = await pedirIA(
       { accion: "descripcion", nombre, categoria, marca: document.getElementById("pf-marca").value.trim(), notas },
-      { boton: "btn-ia-descripcion", estado: "ia-desc-estado", textoCargando: "Redactando..." }
+      { boton: "btn-ia-descripcion", estado: "ia-desc-estado", textoCargando: "Redactando...", campoEsperado: "descripcion" }
     );
     if (r?.descripcion) document.getElementById("pf-desc").value = r.descripcion;
   });
@@ -4466,7 +4474,7 @@ function initIAAdminListenersOnce() {
 
     const r = await pedirIA(
       { accion: "alt", nombre, categoria, descripcion: document.getElementById("pf-desc").value.trim() },
-      { boton: "btn-ia-alt", estado: "ia-alt-estado", textoCargando: "Pensando..." }
+      { boton: "btn-ia-alt", estado: "ia-alt-estado", textoCargando: "Pensando...", campoEsperado: "alt" }
     );
     if (r?.alt) document.getElementById("pf-alt").value = r.alt;
   });
@@ -4485,6 +4493,15 @@ function initIAAdminListenersOnce() {
       { boton: "btn-ia-importar", estado: "ia-importar-estado", textoCargando: "Interpretando..." }
     );
     if (!r) return;
+
+    // "Listo" ya se mostró desde pedirIA, pero acá el éxito real es más
+    // específico: ¿de verdad sacó algo del texto? Si nombre y descripción
+    // vinieron vacíos, no extrajo nada útil — avisar en vez de dejar
+    // "Listo" puesto sin que se haya llenado un solo campo.
+    if (!r.nombre && !r.descripcion) {
+      iaEstado("ia-importar-estado", "No pude sacar nada concreto de ese texto. Probá pegando algo más descriptivo.", "error");
+      return;
+    }
 
     // Se completan solo los campos que estén VACÍOS, para no pisar lo que ya
     // hayas escrito a mano. El precio nunca se aplica solo: se avisa aparte.
@@ -4882,6 +4899,13 @@ function verDetallePedido(id) {
           comprasPrevia
         }
       });
+
+      // Si por algún motivo la IA devolvió un mensaje vacío, no tiene sentido
+      // abrir el bloque de edición con nada adentro y decir "Listo" igual.
+      if (!String(r?.mensaje || "").trim()) {
+        iaEstado("ia-whatsapp-estado", "No se generó texto. Probá de nuevo.", "error");
+        return;
+      }
 
       cont.querySelector("#ia-whatsapp-texto").value = r.mensaje;
       bloque.style.display = "block";
