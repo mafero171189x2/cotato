@@ -1628,7 +1628,11 @@ async function api(path, { method = "GET", body, timeoutMs = 9000 } = {}) {
     auth.currentUser = null;
     notificarAuth();
   }
-  if (!res.ok) throw new Error(data?.error || `Error ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data?.error || `Error ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -2984,6 +2988,17 @@ function initCheckoutListenersOnce() {
       lucide.createIcons();
     } catch (err) {
       console.error(err);
+      // Si el Worker rechazó el pedido porque la sesión no es de cliente
+      // (por ejemplo: no está logueado, o está logueado como admin), no
+      // tiene sentido dejarlo en un toast sin salida — se lo manda directo
+      // a "Mi cuenta" para que inicie sesión o se registre como cliente.
+      if (err?.status === 401 || err?.status === 403) {
+        mostrarToast("Necesitás iniciar sesión o registrarte con una cuenta de cliente para confirmar la compra.", "error");
+        cerrarCheckout();
+        localStorage.setItem("mu_checkout_pendiente", "1");
+        location.hash = "#/cuenta";
+        return;
+      }
       mostrarToast(err?.message || "No se pudo registrar el pedido. Intentá nuevamente.", "error");
     } finally {
       btn.disabled = false; btn.textContent = "Confirmar pedido";
