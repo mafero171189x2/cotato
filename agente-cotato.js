@@ -738,6 +738,25 @@
     if (data.accion === "comparar" && elegidos.length >= 2) extra = tablaComparacionHTML(elegidos);
     else if (elegidos.length) extra = bloqueProductosHTML(elegidos);
 
+    // Gemini decide el TEXTO y decide qué PRODUCTOS mostrar por separado —
+    // y nada obliga a que coincidan. Puede escribir "te muestro esto" y al
+    // mismo tiempo no mandar ningún id real (o mandar ids que no existen,
+    // que ya filtramos arriba por seguridad). Sin este chequeo, el cliente
+    // ve una promesa sin nada abajo. Si el texto prometía productos y no
+    // hay ninguno real para mostrar, se descarta ese texto y se reemplaza
+    // por uno honesto — nunca se le muestra al cliente una promesa vacía.
+    const prometioProductos = data.accion === "productos" || data.accion === "comparar";
+    const cumplioLaPromesa = data.accion === "comparar" ? elegidos.length >= 2 : elegidos.length > 0;
+
+    if (prometioProductos && !cumplioLaPromesa) {
+      IA.historial.push({ rol: "cliente", texto: mensaje });
+      IA.historial.push({ rol: "asistente", texto: "(sin resultados reales para esa búsqueda)" });
+      return {
+        html: `No encontré productos que coincidan. ¿Querés que te muestre otras opciones, o preferís consultarnos por WhatsApp?`,
+        whatsapp: true
+      };
+    }
+
     IA.historial.push({ rol: "cliente", texto: mensaje });
     IA.historial.push({ rol: "asistente", texto: data.respuesta });
 
@@ -1136,6 +1155,29 @@
 
     quitarEscribiendo();
     agregarMensaje(r.html, "bot", r.extra, r.whatsapp);
+    registrarInsight(texto, r);
+  }
+
+  /** Manda al Worker qué se preguntó y si se pudo resolver, para que desde
+   *  el panel se vea qué le falta al catálogo o a la FAQ. No manda nombre,
+   *  teléfono ni ningún dato personal — solo el texto de la pregunta.
+   *  "Fire and forget": si falla, no afecta la respuesta al cliente. */
+  function registrarInsight(pregunta, resultado) {
+    const b = puente();
+    if (!b || typeof b.api !== "function") return;
+    try {
+      b.api("/api/chat-insights", {
+        method: "POST",
+        timeoutMs: 5000,
+        body: {
+          pregunta: String(pregunta || "").slice(0, 300),
+          // "Resuelto" = se le mostró algo concreto (texto propio o productos),
+          // no derivó en seco a WhatsApp por no tener idea de qué contestar.
+          resuelto: !resultado.whatsapp || !!resultado.extra,
+          via: resultado.extra ? "producto" : (resultado.whatsapp ? "otro" : "faq")
+        }
+      }).catch(() => {}); // si falla, no importa: es solo estadística
+    } catch (e) { /* nunca debe romper la conversación */ }
   }
 
   /* ------------------------------------------------------------------ */
