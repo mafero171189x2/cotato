@@ -143,13 +143,17 @@ function promptWhatsapp(d) {
   // — así no puede "colarlo" en el mensaje aunque la regla se lo prohíba.
   const mostrarTotal = d.estado === "pendiente" || d.estado === "pagado";
 
+  // Si no hay nombre, no se manda el placeholder "(sin nombre)" al prompt:
+  // sin esto, Gemini podía llegar a escribirlo tal cual en el saludo
+  // ("¡Hola, (sin nombre)!"). Directamente se omite la línea.
+  const lineaNombre = d.nombre ? `Nombre del cliente: ${d.nombre}\n` : "";
+
   return `${TONO_COTATO}
 
 Escribí un mensaje de WhatsApp para un cliente de COTATO sobre su pedido. Es de la tienda hacia el cliente.
 
 DATOS DEL PEDIDO (los únicos hechos reales — no agregues nada que no esté acá)
-Nombre del cliente: ${d.nombre || "(sin nombre)"}
-Número de pedido: ${d.numeroPedido}
+${lineaNombre}Número de pedido: ${d.numeroPedido}
 Estado actual: ${d.estado}
 Productos: ${d.productos}
 ${mostrarTotal ? `Total con envío: $${d.total}` : ""}
@@ -172,6 +176,7 @@ QUÉ ESCRIBIR SEGÚN EL ESTADO (elegí la fila que corresponda)
 
 OTRAS REGLAS
 - Un solo mensaje, listo para pegar en WhatsApp. Sin asteriscos de markdown, sin emojis salvo como mucho uno.
+- Si no te pasé el nombre del cliente, saludá genérico ("¡Hola!") — nunca inventes un nombre ni escribas un placeholder.
 - Si es su primera compra, dale una bienvenida breve y genuina (sin exagerar) — salvo que el estado sea "cancelado", ahí no corresponde dar la bienvenida.
 - Si ya compró antes, un tono más directo y cercano, como a alguien conocido — sin decir explícitamente "como ya sos cliente".
 - No inventes descuentos, promociones ni plazos de envío que no estén en los datos.
