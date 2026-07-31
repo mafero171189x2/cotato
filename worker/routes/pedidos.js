@@ -1,7 +1,7 @@
 import { requiereCliente, requiereAdmin, requiereSesion, jsonError, json, leerJson, texto } from "../auth/middleware.js";
 import { mapPedido, uuid } from "../database/mappers.js";
 import { calcularEnvio } from "../database/envios.js";
-import { enviarEmailEstadoPedido, enviarEmailNuevoPedidoAdmin } from "../auth/mailer.js";
+import { enviarEmailEstadoPedido, enviarEmailNuevoPedidoAdmin, enviarEmailPedidoCanceladoAdmin } from "../auth/mailer.js";
 
 const MAX_ITEMS_PEDIDO = 50;
 
@@ -183,6 +183,33 @@ export async function handlePedidos(request, env, url) {
     if (pedido.cliente_id !== sesion.uid && sesion.tipo !== "admin") return jsonError("No autorizado", 403);
     if (pedido.estado === "cancelado") return json({ ok: true });
     await devolverStockYCancelar(env, pedido);
+
+    // Si fue el CLIENTE quien canceló su propio pedido (no vos desde el
+    // panel), se avisa al mail de contacto configurado — mismo criterio
+    // y mismo interruptor (notificarPedidoNuevo) que el aviso de pedido nuevo.
+    if (sesion.tipo === "cliente") {
+      try {
+        const cfgGeneral = await env.DB.prepare("SELECT valor FROM configuracion WHERE clave='general'").first();
+        let cfgParseada = {};
+        try { cfgParseada = cfgGeneral ? JSON.parse(cfgGeneral.valor) : {}; } catch (_) { cfgParseada = {}; }
+        const notificarActivo = cfgParseada.notificarPedidoNuevo !== false;
+        const destinatario = cfgParseada.emailContacto || env.GMAIL_USER;
+        if (notificarActivo && destinatario) {
+          const { results: items } = await env.DB.prepare("SELECT * FROM pedido_items WHERE pedido_id = ?").bind(pedido.id).all();
+          await enviarEmailPedidoCanceladoAdmin(env, destinatario, {
+            numeroPedido: pedido.numero_pedido,
+            total: pedido.total,
+            envio: pedido.envio,
+            clienteNombre: pedido.cliente_nombre,
+            clienteTelefono: pedido.cliente_telefono,
+            items: items.map((i) => ({ nombre: i.nombre, precio: i.precio, cantidad: i.cantidad }))
+          });
+        }
+      } catch (err) {
+        console.error("No se pudo avisar la cancelación del cliente:", err);
+      }
+    }
+
     return json({ ok: true });
   }
 
