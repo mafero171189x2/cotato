@@ -177,11 +177,11 @@ export async function enviarEmailErrorWorker(env, detalle) {
       {
         from: { name: "COTATO — Alertas", email: env.GMAIL_USER },
         to: env.GMAIL_USER,
-        subject: `⚠️ Error en COTATO: ${detalle.mensaje}`,
+        subject: `⚠️ Error en COTATO: ${esc(detalle.mensaje)}`,
         html: `
           <p>Se produjo un error inesperado en el Worker.</p>
-          <p><strong>Ruta:</strong> ${detalle.metodo} ${detalle.url}<br>
-          <strong>Error:</strong> ${detalle.mensaje}</p>
+          <p><strong>Ruta:</strong> ${esc(detalle.metodo)} ${esc(detalle.url)}<br>
+          <strong>Error:</strong> ${esc(detalle.mensaje)}</p>
           <p style="color:#888">Si esto se repite seguido, avisá a quien te ayudó a armar la tienda.</p>
         `
       }
