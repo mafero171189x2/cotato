@@ -239,6 +239,7 @@ export async function handlePedidos(request, env, url) {
     if (pedido.cliente_id !== sesion.uid && sesion.tipo !== "admin") return jsonError("No autorizado", 403);
     if (pedido.estado === "cancelado") return json({ ok: true });
     await devolverStockYCancelar(env, pedido);
+    await avisarClienteCancelacion(env, pedido);
 
     // Si fue el CLIENTE quien canceló su propio pedido (no vos desde el
     // panel), se avisa al mail de contacto configurado — mismo criterio
@@ -283,6 +284,7 @@ export async function handlePedidos(request, env, url) {
     if (nuevoEstado === "cancelado" && pedido.estado !== "cancelado" && !pedido.stock_devuelto) {
       await devolverStockYCancelar(env, pedido);
       if (envioNum !== undefined) await env.DB.prepare("UPDATE pedidos SET envio = ? WHERE id = ?").bind(envioNum, id).run();
+      await avisarClienteCancelacion(env, pedido);
     } else if (nuevoEstado !== "cancelado" && pedido.estado === "cancelado" && pedido.stock_devuelto) {
       const { results: items } = await env.DB.prepare("SELECT * FROM pedido_items WHERE pedido_id = ?").bind(id).all();
       const statements = [
@@ -334,4 +336,24 @@ async function devolverStockYCancelar(env, pedido) {
     ...items.map((i) => env.DB.prepare("UPDATE productos SET stock = stock + ?, cantidad_vendida = MAX(0, cantidad_vendida - ?) WHERE id = ?").bind(i.cantidad, i.cantidad, i.producto_id))
   ];
   await env.DB.batch(statements);
+}
+
+/** Avisa por mail al CLIENTE que su pedido quedó cancelado — automático,
+ *  no hace falta que el admin lo mande a mano con el botón "Enviar aviso".
+ *  Se llama después de que el pedido YA está cancelado, sin importar quién
+ *  lo canceló (el cliente mismo, o el admin desde el panel). Es best-effort:
+ *  si falla el mail (Gmail no configurado, etc.), no aborta la cancelación,
+ *  que ya se hizo en la base — solo queda logueado. */
+async function avisarClienteCancelacion(env, pedido) {
+  try {
+    const cliente = await env.DB.prepare("SELECT email FROM clientes WHERE id = ?").bind(pedido.cliente_id).first();
+    if (!cliente || !cliente.email) return;
+    await enviarEmailEstadoPedido(env, cliente.email, {
+      numeroPedido: pedido.numero_pedido,
+      estado: "cancelado",
+      cliente: { nombre: pedido.cliente_nombre }
+    });
+  } catch (err) {
+    console.error("No se pudo avisar la cancelación al cliente:", err);
+  }
 }
