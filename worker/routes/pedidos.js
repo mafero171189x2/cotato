@@ -107,19 +107,16 @@ export async function handlePedidos(request, env, url) {
 
     // El mensaje de WhatsApp cambia según la modalidad: en retiro no tiene
     // sentido mandar una dirección de entrega ni una línea de envío en $0.
-    // Link de Google Maps para que el cliente toque y le abra la ruta hasta
-    // el local. Prioriza las coordenadas exactas (más precisas que el texto
-    // de la dirección); si no hay coordenadas cargadas, usa la dirección de
-    // texto como búsqueda.
+    // Link corto a "Cómo llegar", con tu propio dominio en vez de la URL
+    // larga de Google Maps directo. La página #/como-llegar (index.html)
+    // arma el link real en el momento del clic, leyendo la dirección/
+    // coordenadas configuradas en ese instante — así, si más adelante
+    // cambiás la dirección de la tienda, este link ya enviado también
+    // apunta solo al lugar nuevo.
     let linkMaps = "";
     if (esRetiro) {
-      const lat = Number(cfgParseada.ubicacionLat);
-      const lng = Number(cfgParseada.ubicacionLng);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        linkMaps = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-      } else if (cfgParseada.direccionContacto) {
-        linkMaps = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cfgParseada.direccionContacto)}`;
-      }
+      const origenFrontend = env.CORS_ORIGIN && env.CORS_ORIGIN !== "*" ? env.CORS_ORIGIN : url.origin;
+      linkMaps = `${origenFrontend}/#/como-llegar`;
     }
 
     const lineaEntrega = esRetiro
