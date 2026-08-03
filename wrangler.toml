@@ -12,10 +12,15 @@ database_id = "ada64087-a80c-4028-ae29-6ff700d72742"
 # Variables de entorno
 [vars]
 CORS_ORIGIN = "https://cotato.pages.dev"
-# Cuenta que recibe SOLO las alertas de error del Worker (bugs, fallas de la
-# base, etc.) — se mantiene separada de la cuenta de la tienda a propósito,
-# para que un error nunca se mezcle con los mails que ve un cliente.
-GMAIL_USER = "mafero171189x2@gmail.com"
+# Cuenta que envía Y recibe SOLO las alertas de error del Worker (bugs,
+# fallas de la base, etc.) — se mantiene separada de la cuenta de la tienda
+# a propósito, para que un error nunca se mezcle con los mails que ve un
+# cliente. Requiere su propia contraseña de aplicación en GMAIL_APP_PASSWORD
+# (la de ESTA cuenta puntual, no la de la tienda).
+GMAIL_USER = "mafero171189@gmail.com"
+# Por si en algún momento querés que el destino sea otro mail distinto del
+# que envía (GMAIL_USER de arriba). Vacío/comentado = se manda a sí misma.
+# GMAIL_ERROR_TO = "otro-mail@gmail.com"
 # Cuenta desde la que salen TODOS los demás mails: bienvenida, recuperar
 # contraseña, confirmación de pedido, cancelación, avisos de pedido
 # nuevo/cancelado al admin. Requiere su propia contraseña de aplicación
