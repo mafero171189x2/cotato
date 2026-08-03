@@ -244,7 +244,7 @@ export async function enviarEmailErrorWorker(env, detalle) {
 // ---------------------------------------------------------------------------
 // Mail de bienvenida — se manda solo al crear una cuenta de cliente nueva.
 // ---------------------------------------------------------------------------
-export async function enviarEmailBienvenida(env, destinatarioEmail, nombreCliente) {
+export async function enviarEmailBienvenida(env, destinatarioEmail, nombreCliente, linkTienda) {
   if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) return false;
   try {
     await WorkerMailer.send(
@@ -260,9 +260,15 @@ export async function enviarEmailBienvenida(env, destinatarioEmail, nombreClient
         to: destinatarioEmail,
         subject: "¡Bienvenido/a a COTATO!",
         html: `
-          <p>¡Hola${nombreCliente ? " " + nombreCliente : ""}! 🎉</p>
+          <p>¡Hola${nombreCliente ? " " + esc(nombreCliente) : ""}! 🎉</p>
           <p>¡Bienvenido/a a COTATO! Gracias por registrarte — es un gusto tenerte con nosotros.</p>
           <p>Tu cuenta ya está lista. Desde "Mi cuenta" podés ver tus pedidos, tus datos y tus favoritos cuando quieras.</p>
+          ${linkTienda ? `
+          <p style="margin-top:20px">
+            <a href="${esc(linkTienda)}" style="display:inline-block;background:#1a1614;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+              Ir a la tienda
+            </a>
+          </p>` : ""}
         `
       }
     );
