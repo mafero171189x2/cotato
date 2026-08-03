@@ -9,6 +9,7 @@ import { handleAgente } from "./routes/agente.js"; // <-- NUEVO: asistente virtu
 import { handleAdminIA } from "./routes/admin-ia.js"; // <-- NUEVO: IA del panel admin
 import { handleAdminAnalisis } from "./routes/admin-analisis.js"; // <-- NUEVO: análisis de datos con IA
 import { handleChatInsights } from "./routes/chat-insights.js"; // <-- NUEVO: insights del chat
+import { handleTestError } from "./routes/test-error.js"; // <-- DIAGNÓSTICO: probar el mail de alertas de error
 import { jsonError } from "./auth/middleware.js";
 import { enviarEmailErrorWorker } from "./auth/mailer.js";
 
@@ -103,6 +104,8 @@ export default {
         response = await handleAgente(request, env, url);
       } else if (url.pathname.startsWith("/api/chat-insights")) { // <-- NUEVO: insights del chat
         response = await handleChatInsights(request, env, url);
+      } else if (url.pathname === "/api/admin/test-error") { // <-- DIAGNÓSTICO: probar el mail de alertas
+        response = await handleTestError(request, env, url);
       } else {
         response = jsonError("Ruta no encontrada", 404);
       }
