@@ -1,15 +1,35 @@
-// Envío de emails transaccionales por SMTP de Gmail, usando tu propia cuenta.
+// Envío de emails transaccionales por SMTP de Gmail. Usa DOS cuentas de
+// Gmail separadas a propósito:
+//   - GMAIL_USER / GMAIL_APP_PASSWORD        → SOLO alertas de error del
+//     Worker (enviarEmailErrorWorker). Así un bug nunca se mezcla con lo
+//     que ve un cliente.
+//   - GMAIL_USER_TIENDA / GMAIL_APP_PASSWORD_TIENDA → todo lo demás:
+//     bienvenida, recuperar contraseña, estado de pedido, avisos de pedido
+//     nuevo/cancelado al admin.
 // Ventaja sobre Resend/Brevo: NO necesita dominio propio verificado, porque
-// el mail sale realmente de los servidores de Google (con tu Gmail real como
-// remitente) — así que llega a cualquier destinatario, no solo a vos.
+// el mail sale realmente de los servidores de Google — así que llega a
+// cualquier destinatario, no solo a vos.
 //
 // Requiere en el Worker (ver README):
-//   - env.GMAIL_USER          → variable normal en wrangler.toml, tu email de Gmail
-//   - env.GMAIL_APP_PASSWORD  → secreto, wrangler secret put GMAIL_APP_PASSWORD
-//                                (una "contraseña de aplicación" de Google,
-//                                NO tu contraseña normal de Gmail — se genera
-//                                en myaccount.google.com con 2FA activado)
+//   - env.GMAIL_USER                 → variable normal en wrangler.toml
+//   - env.GMAIL_APP_PASSWORD         → secreto, wrangler secret put GMAIL_APP_PASSWORD
+//   - env.GMAIL_USER_TIENDA          → variable normal en wrangler.toml
+//   - env.GMAIL_APP_PASSWORD_TIENDA  → secreto, wrangler secret put GMAIL_APP_PASSWORD_TIENDA
+//   (las contraseñas son "contraseñas de aplicación" de Google, NO la
+//   contraseña normal de esas cuentas de Gmail — se generan en
+//   myaccount.google.com/apppasswords, con 2FA activado en esa cuenta)
 import { WorkerMailer } from "worker-mailer";
+
+/** Arma la config de conexión SMTP para una cuenta de Gmail dada. */
+function conexionGmail(usuario, appPassword) {
+  return {
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    authType: "login",
+    credentials: { username: usuario, password: appPassword }
+  };
+}
 
 /** Escapa texto antes de meterlo en el HTML del mail.
  *  Sin esto, un cliente podía poner HTML en su nombre o teléfono al hacer el
@@ -26,21 +46,15 @@ function esc(v) {
 }
 
 export async function enviarEmailReset(env, destinatarioEmail, link) {
-  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
-    console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo enviar el mail de recuperación");
+  if (!env.GMAIL_USER_TIENDA || !env.GMAIL_APP_PASSWORD_TIENDA) {
+    console.error("Falta GMAIL_USER_TIENDA o GMAIL_APP_PASSWORD_TIENDA — no se pudo enviar el mail de recuperación");
     return false;
   }
   try {
     await WorkerMailer.send(
+      conexionGmail(env.GMAIL_USER_TIENDA, env.GMAIL_APP_PASSWORD_TIENDA),
       {
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        authType: "login",
-        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
-      },
-      {
-        from: { name: "COTATO", email: env.GMAIL_USER },
+        from: { name: "COTATO", email: env.GMAIL_USER_TIENDA },
         to: destinatarioEmail,
         subject: "Recuperar tu contraseña — COTATO",
         html: `
@@ -71,22 +85,16 @@ const MENSAJES_ESTADO = {
 };
 
 export async function enviarEmailEstadoPedido(env, destinatarioEmail, pedido) {
-  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
-    console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo enviar el aviso de pedido");
+  if (!env.GMAIL_USER_TIENDA || !env.GMAIL_APP_PASSWORD_TIENDA) {
+    console.error("Falta GMAIL_USER_TIENDA o GMAIL_APP_PASSWORD_TIENDA — no se pudo enviar el aviso de pedido");
     return false;
   }
   const msg = MENSAJES_ESTADO[pedido.estado] || { asunto: "Actualización de tu pedido", texto: `Tu pedido cambió de estado a: ${esc(pedido.estado)}.` };
   try {
     await WorkerMailer.send(
+      conexionGmail(env.GMAIL_USER_TIENDA, env.GMAIL_APP_PASSWORD_TIENDA),
       {
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        authType: "login",
-        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
-      },
-      {
-        from: { name: "COTATO", email: env.GMAIL_USER },
+        from: { name: "COTATO", email: env.GMAIL_USER_TIENDA },
         to: destinatarioEmail,
         subject: `${msg.asunto} — Pedido ${pedido.numeroPedido}`,
         html: `
@@ -112,22 +120,16 @@ export async function enviarEmailEstadoPedido(env, destinatarioEmail, pedido) {
 // no hay uno cargado).
 // ---------------------------------------------------------------------------
 export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido) {
-  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
-    console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo avisar del pedido nuevo");
+  if (!env.GMAIL_USER_TIENDA || !env.GMAIL_APP_PASSWORD_TIENDA) {
+    console.error("Falta GMAIL_USER_TIENDA o GMAIL_APP_PASSWORD_TIENDA — no se pudo avisar del pedido nuevo");
     return false;
   }
   const listaItems = pedido.items.map((i) => `${Number(i.cantidad) || 0}x ${esc(i.nombre)} — $${(i.precio * i.cantidad).toLocaleString("es-AR")}`).join("<br>");
   try {
     await WorkerMailer.send(
+      conexionGmail(env.GMAIL_USER_TIENDA, env.GMAIL_APP_PASSWORD_TIENDA),
       {
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        authType: "login",
-        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
-      },
-      {
-        from: { name: "COTATO", email: env.GMAIL_USER },
+        from: { name: "COTATO", email: env.GMAIL_USER_TIENDA },
         to: destinatarioEmail,
         subject: `${pedido.esRetiro ? "🏪" : "🛒"} Nuevo pedido ${esc(pedido.numeroPedido)}${pedido.esRetiro ? " (RETIRO)" : ""} — $${pedido.total.toLocaleString("es-AR")}`,
         html: `
@@ -160,22 +162,16 @@ export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido
 // Gmail si no hay uno cargado) — igual que enviarEmailNuevoPedidoAdmin.
 // ---------------------------------------------------------------------------
 export async function enviarEmailPedidoCanceladoAdmin(env, destinatarioEmail, pedido) {
-  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
-    console.error("Falta GMAIL_USER o GMAIL_APP_PASSWORD — no se pudo avisar la cancelación");
+  if (!env.GMAIL_USER_TIENDA || !env.GMAIL_APP_PASSWORD_TIENDA) {
+    console.error("Falta GMAIL_USER_TIENDA o GMAIL_APP_PASSWORD_TIENDA — no se pudo avisar la cancelación");
     return false;
   }
   const listaItems = pedido.items.map((i) => `${Number(i.cantidad) || 0}x ${esc(i.nombre)} — $${(i.precio * i.cantidad).toLocaleString("es-AR")}`).join("<br>");
   try {
     await WorkerMailer.send(
+      conexionGmail(env.GMAIL_USER_TIENDA, env.GMAIL_APP_PASSWORD_TIENDA),
       {
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        authType: "login",
-        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
-      },
-      {
-        from: { name: "COTATO", email: env.GMAIL_USER },
+        from: { name: "COTATO", email: env.GMAIL_USER_TIENDA },
         to: destinatarioEmail,
         subject: `❌ Pedido cancelado por el cliente ${esc(pedido.numeroPedido)}`,
         html: `
@@ -245,18 +241,12 @@ export async function enviarEmailErrorWorker(env, detalle) {
 // Mail de bienvenida — se manda solo al crear una cuenta de cliente nueva.
 // ---------------------------------------------------------------------------
 export async function enviarEmailBienvenida(env, destinatarioEmail, nombreCliente, linkTienda) {
-  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) return false;
+  if (!env.GMAIL_USER_TIENDA || !env.GMAIL_APP_PASSWORD_TIENDA) return false;
   try {
     await WorkerMailer.send(
+      conexionGmail(env.GMAIL_USER_TIENDA, env.GMAIL_APP_PASSWORD_TIENDA),
       {
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        authType: "login",
-        credentials: { username: env.GMAIL_USER, password: env.GMAIL_APP_PASSWORD }
-      },
-      {
-        from: { name: "COTATO", email: env.GMAIL_USER },
+        from: { name: "COTATO", email: env.GMAIL_USER_TIENDA },
         to: destinatarioEmail,
         subject: "¡Bienvenido/a a COTATO!",
         html: `
