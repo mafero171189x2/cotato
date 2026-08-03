@@ -5053,6 +5053,8 @@ function verDetallePedido(id) {
           productos: productosTxt,
           total: (Number(p.total) || 0) + Math.max(0, numMiles(cont.querySelector("#input-envio-pedido") || { value: "" })),
           alias: CONFIG.aliasCbu || "",
+          esRetiro: !!p.esRetiro,
+          direccionRetiro: p.esRetiro ? (CONFIG.direccionContacto || "") : "",
           esPrimeraCompra,
           comprasPrevia
         }
