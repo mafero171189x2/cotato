@@ -35,6 +35,9 @@ export async function handleConfig(request, env, url) {
       envioGratisDesde: Math.max(0, Number(b.envioGratisDesde) || 0),
       aliasCbu: texto(b.aliasCbu, 60),
       notificarPedidoNuevo: b.notificarPedidoNuevo !== false,
+      // Retiro por el local: si está en true, el cliente puede elegir pasar a
+      // buscar el pedido en vez de pagar envío. Por defecto viene apagado.
+      retiroLocal: b.retiroLocal === true,
       emailContacto: texto(b.emailContacto, 120),
       direccionContacto: texto(b.direccionContacto, 200),
       ubicacionLat: b.ubicacionLat === null || b.ubicacionLat === undefined ? null : Number(b.ubicacionLat),
