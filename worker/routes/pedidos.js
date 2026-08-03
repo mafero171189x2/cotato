@@ -107,8 +107,23 @@ export async function handlePedidos(request, env, url) {
 
     // El mensaje de WhatsApp cambia según la modalidad: en retiro no tiene
     // sentido mandar una dirección de entrega ni una línea de envío en $0.
+    // Link de Google Maps para que el cliente toque y le abra la ruta hasta
+    // el local. Prioriza las coordenadas exactas (más precisas que el texto
+    // de la dirección); si no hay coordenadas cargadas, usa la dirección de
+    // texto como búsqueda.
+    let linkMaps = "";
+    if (esRetiro) {
+      const lat = Number(cfgParseada.ubicacionLat);
+      const lng = Number(cfgParseada.ubicacionLng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        linkMaps = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      } else if (cfgParseada.direccionContacto) {
+        linkMaps = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cfgParseada.direccionContacto)}`;
+      }
+    }
+
     const lineaEntrega = esRetiro
-      ? `Entrega: RETIRO POR EL LOCAL${cfgParseada.direccionContacto ? ` (${cfgParseada.direccionContacto})` : ""}`
+      ? `Entrega: RETIRO POR EL LOCAL${cfgParseada.direccionContacto ? ` (${cfgParseada.direccionContacto})` : ""}${linkMaps ? `\nCómo llegar: ${linkMaps}` : ""}`
       : `Dirección: ${direccionCompleta}`;
     const lineaCostoEnvio = esRetiro
       ? ""
