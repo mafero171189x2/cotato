@@ -32,6 +32,18 @@ export async function handlePedidos(request, env, url) {
     if (items.length > MAX_ITEMS_PEDIDO) return jsonError("Demasiados productos en un mismo pedido", 400);
     if (!datosCliente || typeof datosCliente !== "object") return jsonError("Faltan datos de envío", 400);
 
+    // La config se lee ACÁ (y no más abajo como antes) porque hace falta para
+    // validar el retiro por local antes de seguir.
+    const cfgGeneral = await env.DB.prepare("SELECT valor FROM configuracion WHERE clave='general'").first();
+    let cfgParseada = {};
+    try { cfgParseada = cfgGeneral ? JSON.parse(cfgGeneral.valor) : {}; } catch (_) { cfgParseada = {}; }
+
+    // RETIRO POR EL LOCAL — nunca se confía en el navegador: aunque el cliente
+    // mande retiro:true, solo vale si el dueño lo tiene HABILITADO en la
+    // configuración de la tienda. Si está apagado, el pedido sigue el camino
+    // normal de envío a domicilio (y por lo tanto se le va a exigir dirección).
+    const esRetiro = body.retiro === true && cfgParseada.retiroLocal === true;
+
     // Todos los textos libres se recortan antes de tocar la base o el mail.
     const d = {
       nombre: texto(datosCliente.nombre, 80),
@@ -43,7 +55,22 @@ export async function handlePedidos(request, env, url) {
       codigoPostal: texto(datosCliente.codigoPostal, 12),
       notas: texto(datosCliente.notas, 500)
     };
-    if (!d.nombre || !d.direccion || !d.provincia) return jsonError("Faltan datos de envío", 400);
+    if (esRetiro) {
+      // Retira en persona: no hay a dónde enviar nada, así que solo se le
+      // piden los datos para identificarlo y poder coordinar.
+      if (!d.nombre || !d.telefono) return jsonError("Necesitamos tu nombre y teléfono para el retiro", 400);
+      // Se descartan los datos de envío aunque el navegador los haya mandado
+      // (quedan precargados y ocultos en el formulario). Así el pedido no
+      // muestra una dirección de entrega que no corresponde y nadie lo
+      // despacha por error desde el panel.
+      d.direccion = "";
+      d.entreCalles = "";
+      d.ciudad = "";
+      d.provincia = "";
+      d.codigoPostal = "";
+    } else {
+      if (!d.nombre || !d.direccion || !d.provincia) return jsonError("Faltan datos de envío", 400);
+    }
 
     // Releer productos DESDE LA BASE (nunca confiar en precio/stock del cliente)
     const ids = [...new Set(items.map((i) => texto(i && i.productoId, 60)).filter(Boolean))];
@@ -65,28 +92,38 @@ export async function handlePedidos(request, env, url) {
     const total = itemsVerificados.reduce((a, i) => a + i.precio * i.cantidad, 0);
     const totalArticulos = itemsVerificados.reduce((a, i) => a + i.cantidad, 0);
 
-    const rEnvio = await calcularEnvio(env, d.provincia, totalArticulos, total);
+    // Si retira por el local no hay envío que calcular ni que cobrar.
+    const rEnvio = esRetiro
+      ? { ok: true, costo: 0, motivo: "", zonaNombre: "Retiro por el local", gratis: true }
+      : await calcularEnvio(env, d.provincia, totalArticulos, total);
     if (!rEnvio.ok) return jsonError(rEnvio.motivo, 400);
 
     const numeroPedido = generarNumeroPedido();
     const pedidoId = uuid();
     const lista = itemsVerificados.map((i) => `• ${i.cantidad}x ${i.nombre} - $${(i.precio * i.cantidad).toLocaleString("es-AR")}`).join("\n");
     const direccionCompleta = `${d.direccion}${d.entreCalles ? " (" + d.entreCalles + ")" : ""}, ${d.ciudad}, ${d.provincia} — CP ${d.codigoPostal}`;
-    const cfgGeneral = await env.DB.prepare("SELECT valor FROM configuracion WHERE clave='general'").first();
-    let cfgParseada = {};
-    try { cfgParseada = cfgGeneral ? JSON.parse(cfgGeneral.valor) : {}; } catch (_) { cfgParseada = {}; }
     const aliasCbu = cfgParseada.aliasCbu || "";
     const lineaAlias = aliasCbu ? `\n\nPara transferir: ${aliasCbu}` : "";
-    const mensajeWhatsapp = `¡Hola! Quiero confirmar mi pedido N° ${numeroPedido}.\n\nCliente: ${d.nombre}\nDirección: ${direccionCompleta}\n\nProductos:\n${lista}\n\nSubtotal: $${total.toLocaleString("es-AR")}\nEnvío (${rEnvio.zonaNombre}): $${rEnvio.costo.toLocaleString("es-AR")}\nTOTAL: $${(total + rEnvio.costo).toLocaleString("es-AR")}${lineaAlias}\n\nYa transfiero y te mando el comprobante.`;
+
+    // El mensaje de WhatsApp cambia según la modalidad: en retiro no tiene
+    // sentido mandar una dirección de entrega ni una línea de envío en $0.
+    const lineaEntrega = esRetiro
+      ? `Entrega: RETIRO POR EL LOCAL${cfgParseada.direccionContacto ? ` (${cfgParseada.direccionContacto})` : ""}`
+      : `Dirección: ${direccionCompleta}`;
+    const lineaCostoEnvio = esRetiro
+      ? ""
+      : `\nEnvío (${rEnvio.zonaNombre}): $${rEnvio.costo.toLocaleString("es-AR")}`;
+    const lineaNotas = d.notas ? `\nNotas: ${d.notas}` : "";
+    const mensajeWhatsapp = `¡Hola! Quiero confirmar mi pedido N° ${numeroPedido}.\n\nCliente: ${d.nombre}\nTeléfono: ${d.telefono}\n${lineaEntrega}${lineaNotas}\n\nProductos:\n${lista}\n\nSubtotal: $${total.toLocaleString("es-AR")}${lineaCostoEnvio}\nTOTAL: $${(total + rEnvio.costo).toLocaleString("es-AR")}${lineaAlias}\n\nYa transfiero y te mando el comprobante.`;
 
     const statements = [
       env.DB.prepare(
-        `INSERT INTO pedidos (id, numero_pedido, cliente_id, cliente_nombre, cliente_telefono, direccion, entre_calles, ciudad, provincia, codigo_postal, notas, total, envio, zona_envio, estado, stock_devuelto, mensaje_whatsapp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', 0, ?)`
+        `INSERT INTO pedidos (id, numero_pedido, cliente_id, cliente_nombre, cliente_telefono, direccion, entre_calles, ciudad, provincia, codigo_postal, notas, total, envio, zona_envio, estado, es_retiro, stock_devuelto, mensaje_whatsapp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, 0, ?)`
       ).bind(
         pedidoId, numeroPedido, sesion.uid, d.nombre, d.telefono,
         d.direccion, d.entreCalles, d.ciudad, d.provincia, d.codigoPostal, d.notas,
-        total, rEnvio.costo, rEnvio.zonaNombre, mensajeWhatsapp
+        total, rEnvio.costo, rEnvio.zonaNombre, esRetiro ? 1 : 0, mensajeWhatsapp
       ),
       ...itemsVerificados.map((i) =>
         env.DB.prepare(`INSERT INTO pedido_items (id, pedido_id, producto_id, nombre, precio, cantidad) VALUES (?, ?, ?, ?, ?, ?)`)
@@ -96,9 +133,15 @@ export async function handlePedidos(request, env, url) {
         env.DB.prepare(`UPDATE productos SET stock = stock - ?, cantidad_vendida = cantidad_vendida + ? WHERE id = ? AND stock >= ?`)
           .bind(i.cantidad, i.cantidad, i.productoId, i.cantidad)
       ),
-      env.DB.prepare(
-        `UPDATE clientes SET nombre=?, telefono=?, direccion=?, entre_calles=?, ciudad=?, provincia=?, codigo_postal=? WHERE id=?`
-      ).bind(d.nombre, d.telefono, d.direccion, d.entreCalles, d.ciudad, d.provincia, d.codigoPostal, sesion.uid)
+      // En retiro NO se pisan los datos de envío del cliente: vienen vacíos
+      // (no se los pedimos) y guardarlos le borraría la dirección que ya
+      // tenía cargada de compras anteriores.
+      esRetiro
+        ? env.DB.prepare(`UPDATE clientes SET nombre=?, telefono=? WHERE id=?`)
+            .bind(d.nombre, d.telefono, sesion.uid)
+        : env.DB.prepare(
+            `UPDATE clientes SET nombre=?, telefono=?, direccion=?, entre_calles=?, ciudad=?, provincia=?, codigo_postal=? WHERE id=?`
+          ).bind(d.nombre, d.telefono, d.direccion, d.entreCalles, d.ciudad, d.provincia, d.codigoPostal, sesion.uid)
     ];
     await env.DB.batch(statements);
 
@@ -109,6 +152,7 @@ export async function handlePedidos(request, env, url) {
         await enviarEmailNuevoPedidoAdmin(env, destinatario, {
           numeroPedido, total, envio: rEnvio.costo,
           clienteNombre: d.nombre, clienteTelefono: d.telefono,
+          esRetiro,
           items: itemsVerificados
         });
       }
@@ -116,7 +160,7 @@ export async function handlePedidos(request, env, url) {
       console.error("No se pudo avisar el pedido nuevo:", err);
     }
 
-    return json({ numeroPedido, pedidoId, mensajeWhatsapp, total, envio: rEnvio.costo }, 201);
+    return json({ numeroPedido, pedidoId, mensajeWhatsapp, total, envio: rEnvio.costo, esRetiro }, 201);
   }
 
   // ---- LISTAR --------------------------------------------------------------
