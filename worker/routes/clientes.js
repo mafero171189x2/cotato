@@ -1,7 +1,36 @@
 import { requiereCliente, requiereAdmin, jsonError, json, leerJson, texto } from "../auth/middleware.js";
-import { mapCliente } from "../database/mappers.js";
+import { mapCliente, uuid } from "../database/mappers.js";
 
 const MAX_ITEMS_CARRITO = 100;
+
+/** Anonimiza una cuenta de cliente en vez de borrar la fila.
+ *
+ *  POR QUÉ: pedidos.cliente_id referencia a clientes(id) SIN "ON DELETE
+ *  CASCADE" (a propósito: nunca hay que perder el historial de ventas), y
+ *  el schema tiene PRAGMA foreign_keys = ON. Así que un DELETE FROM clientes
+ *  para cualquier cliente que ya hizo al menos un pedido rompe la foreign
+ *  key y tira 500 — antes pasaba exactamente eso.
+ *
+ *  En vez de eso: se le borran los datos personales y de acceso (nombre,
+ *  contraseña, teléfono, dirección) y se invalida cualquier sesión activa,
+ *  pero la fila sigue existiendo así los pedidos ya hechos quedan intactos
+ *  en los registros — que es, además, lo que la FAQ del sitio ya le
+ *  promete al cliente. */
+async function anonimizarCliente(env, clienteId) {
+  const emailAnonimo = `eliminado-${uuid()}@cotato.local`;
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM carritos WHERE cliente_id = ?").bind(clienteId),
+    env.DB.prepare(
+      `UPDATE clientes SET
+         email = ?, password_hash = '', nombre = 'Cuenta eliminada',
+         telefono = '', direccion = '', entre_calles = '', ciudad = '',
+         provincia = '', codigo_postal = '',
+         reset_token = NULL, reset_token_exp = NULL,
+         token_version = token_version + 1
+       WHERE id = ?`
+    ).bind(emailAnonimo, clienteId)
+  ]);
+}
 
 export async function handleClientes(request, env, url) {
   const method = request.method;
@@ -11,8 +40,12 @@ export async function handleClientes(request, env, url) {
   // ---- LISTAR (admin) ------------------------------------------------------
   if (method === "GET" && !seg2) {
     await requiereAdmin(request, env);
+    // Las cuentas anonimizadas (ver anonimizarCliente) quedan con nombre
+    // "Cuenta eliminada" — se ocultan del listado para no ensuciarlo con
+    // cuentas que ya no son de nadie. Sus pedidos siguen intactos igual,
+    // esto solo afecta la lista de clientes.
     const { results } = await env.DB.prepare(
-      "SELECT id, email, nombre, telefono, provincia, fecha_registro FROM clientes ORDER BY fecha_registro DESC"
+      "SELECT id, email, nombre, telefono, provincia, fecha_registro FROM clientes WHERE nombre != 'Cuenta eliminada' ORDER BY fecha_registro DESC"
     ).all();
     return json({ clientes: results });
   }
@@ -68,10 +101,7 @@ export async function handleClientes(request, env, url) {
   // ---- ELIMINAR MI PROPIA CUENTA -------------------------------------------
   if (method === "DELETE" && url.pathname === "/api/clientes/yo") {
     const sesion = await requiereCliente(request, env);
-    await env.DB.batch([
-      env.DB.prepare("DELETE FROM carritos WHERE cliente_id = ?").bind(sesion.uid),
-      env.DB.prepare("DELETE FROM clientes WHERE id = ?").bind(sesion.uid)
-    ]);
+    await anonimizarCliente(env, sesion.uid);
     return json({ ok: true });
   }
 
@@ -80,10 +110,7 @@ export async function handleClientes(request, env, url) {
     await requiereAdmin(request, env);
     const cliente = await env.DB.prepare("SELECT id FROM clientes WHERE id = ?").bind(seg2).first();
     if (!cliente) return jsonError("Cliente no encontrado", 404);
-    await env.DB.batch([
-      env.DB.prepare("DELETE FROM carritos WHERE cliente_id = ?").bind(seg2),
-      env.DB.prepare("DELETE FROM clientes WHERE id = ?").bind(seg2)
-    ]);
+    await anonimizarCliente(env, seg2);
     return json({ ok: true });
   }
 
