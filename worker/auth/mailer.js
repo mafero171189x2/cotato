@@ -129,15 +129,16 @@ export async function enviarEmailNuevoPedidoAdmin(env, destinatarioEmail, pedido
       {
         from: { name: "COTATO", email: env.GMAIL_USER },
         to: destinatarioEmail,
-        subject: `🛒 Nuevo pedido ${esc(pedido.numeroPedido)} — $${pedido.total.toLocaleString("es-AR")}`,
+        subject: `${pedido.esRetiro ? "🏪" : "🛒"} Nuevo pedido ${esc(pedido.numeroPedido)}${pedido.esRetiro ? " (RETIRO)" : ""} — $${pedido.total.toLocaleString("es-AR")}`,
         html: `
           <p>Entró un pedido nuevo en COTATO.</p>
+          <p><strong>Entrega:</strong> ${pedido.esRetiro ? "🏪 <strong>RETIRA POR EL LOCAL</strong>" : "📦 Envío a domicilio"}</p>
           <p><strong>Pedido:</strong> ${esc(pedido.numeroPedido)}<br>
           <strong>Cliente:</strong> ${esc(pedido.clienteNombre)}<br>
           <strong>Teléfono:</strong> ${esc(pedido.clienteTelefono) || "—"}</p>
           <p><strong>Productos:</strong><br>${listaItems}</p>
           <p><strong>Subtotal:</strong> $${pedido.total.toLocaleString("es-AR")}<br>
-          <strong>Envío:</strong> $${pedido.envio.toLocaleString("es-AR")}<br>
+          <strong>Envío:</strong> ${pedido.esRetiro ? "— (retira en el local)" : `$${pedido.envio.toLocaleString("es-AR")}`}<br>
           <strong>Total:</strong> $${(pedido.total + pedido.envio).toLocaleString("es-AR")}</p>
           <p>Entrá al panel para confirmarlo.</p>
         `
