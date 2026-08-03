@@ -72,6 +72,7 @@ export function mapPedido(row, items = []) {
     total: row.total,
     envio: row.envio,
     zonaEnvio: row.zona_envio,
+    esRetiro: !!row.es_retiro,
     estado: row.estado,
     stockDevuelto: !!row.stock_devuelto,
     mensajeWhatsapp: row.mensaje_whatsapp,
