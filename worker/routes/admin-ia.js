@@ -148,6 +148,13 @@ function promptWhatsapp(d) {
   // ("¡Hola, (sin nombre)!"). Directamente se omite la línea.
   const lineaNombre = d.nombre ? `Nombre del cliente: ${d.nombre}\n` : "";
 
+  // Modalidad de entrega: cambia por completo lo que corresponde decir en
+  // "preparación" y "enviado" — un pedido que se retira no tiene envío que
+  // avisar, tiene que pasar a buscarlo.
+  const lineaEntrega = d.esRetiro
+    ? `Modalidad de entrega: RETIRA POR EL LOCAL${d.direccionRetiro ? ` (${d.direccionRetiro})` : ""}. NO es un envío.\n`
+    : `Modalidad de entrega: envío a domicilio.\n`;
+
   return `${TONO_COTATO}
 
 Escribí un mensaje de WhatsApp para un cliente de COTATO sobre su pedido. Es de la tienda hacia el cliente.
@@ -155,8 +162,8 @@ Escribí un mensaje de WhatsApp para un cliente de COTATO sobre su pedido. Es de
 DATOS DEL PEDIDO (los únicos hechos reales — no agregues nada que no esté acá)
 ${lineaNombre}Número de pedido: ${d.numeroPedido}
 Estado actual: ${d.estado}
-Productos: ${d.productos}
-${mostrarTotal ? `Total con envío: $${d.total}` : ""}
+${lineaEntrega}Productos: ${d.productos}
+${mostrarTotal ? `Total${d.esRetiro ? "" : " con envío"}: $${d.total}` : ""}
 ${alias ? `Alias para transferir: ${alias}` : ""}
 ${d.esPrimeraCompra === true ? "Es su primera compra en la tienda." : ""}
 ${d.esPrimeraCompra === false ? `Ya hizo ${d.comprasPrevia} compra(s) antes.` : ""}
@@ -169,9 +176,9 @@ sobre un pedido o el cliente parezca interesado en comprar.
 QUÉ ESCRIBIR SEGÚN EL ESTADO (elegí la fila que corresponda)
 - "pendiente": pedile el comprobante de la transferencia, mencionando el total. Si te pasé un alias, incluilo.
 - "pagado": confirmá que se registró el pago (podés mencionar el monto como respaldo). NO pidas ningún pago ni menciones alias.
-- "preparacion": contale que su pedido está en preparación. NO menciones montos, precios ni alias.
-- "enviado": avisale que ya salió el envío. NO menciones montos, precios ni alias.
-- "entregado": preguntale si lo recibió bien, en tono de cierre. NO menciones montos, precios ni alias, NO lo invites a comprar de nuevo.
+- "preparacion": contale que su pedido está en preparación. Si la modalidad es RETIRA POR EL LOCAL, no digas nada de que "va a salir" ni de plazos de envío — decí que le avisás apenas esté listo para retirar. NO menciones montos, precios ni alias.
+- "enviado": si la modalidad es envío a domicilio, avisale que ya salió el envío. Si la modalidad es RETIRA POR EL LOCAL, avisale que el pedido está listo para que pase a buscarlo (mencioná la dirección si te la pasé) y pedile que coordine el día/horario — NUNCA digas "envío", "salió" ni nada que suene a que se lo vas a llevar vos. NO menciones montos, precios ni alias.
+- "entregado": preguntale si lo recibió bien (o si ya lo retiró, según la modalidad), en tono de cierre. NO menciones montos, precios ni alias, NO lo invites a comprar de nuevo.
 - "cancelado": avisale con tono neutral y respetuoso que el pedido quedó cancelado, y que estás para lo que necesite. NO menciones montos, precios ni alias, NO lo invites a completar la compra, NO insistas en que retome el pedido. Es un mensaje informativo, no una venta.
 
 OTRAS REGLAS
@@ -307,6 +314,8 @@ export async function handleAdminIA(request, env, url) {
         productos: String(body.productos || "").slice(0, 600),
         total: Number(body.total) || 0,
         alias: String(body.alias || "").slice(0, 100),
+        esRetiro: body.esRetiro === true,
+        direccionRetiro: String(body.direccionRetiro || "").slice(0, 200),
         // esPrimeraCompra puede venir true/false/undefined: si no se sabe,
         // no se le pide a la IA que asuma nada al respecto.
         esPrimeraCompra: typeof body.esPrimeraCompra === "boolean" ? body.esPrimeraCompra : null,
