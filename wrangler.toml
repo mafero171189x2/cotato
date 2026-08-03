@@ -12,7 +12,15 @@ database_id = "ada64087-a80c-4028-ae29-6ff700d72742"
 # Variables de entorno
 [vars]
 CORS_ORIGIN = "https://cotato.pages.dev"
+# Cuenta que recibe SOLO las alertas de error del Worker (bugs, fallas de la
+# base, etc.) — se mantiene separada de la cuenta de la tienda a propósito,
+# para que un error nunca se mezcle con los mails que ve un cliente.
 GMAIL_USER = "mafero171189x2@gmail.com"
+# Cuenta desde la que salen TODOS los demás mails: bienvenida, recuperar
+# contraseña, confirmación de pedido, cancelación, avisos de pedido
+# nuevo/cancelado al admin. Requiere su propia contraseña de aplicación
+# (ver GMAIL_APP_PASSWORD_TIENDA como Secret, más abajo).
+GMAIL_USER_TIENDA = "cotato.tienda@gmail.com"
 
 # Modelo de Gemini que usan el chat del cliente y las herramientas del panel
 # admin (agente.js, admin-ia.js, admin-analisis.js). No es secreto, es solo
@@ -23,5 +31,7 @@ GMAIL_USER = "mafero171189x2@gmail.com"
 # no hace falta tocar ningún archivo de worker/routes/.
 GEMINI_MODELO = "gemini-3.5-flash-lite"
 
-# JWT_SECRET y GMAIL_APP_PASSWORD se configuran como secretos, NO en este archivo.
+# JWT_SECRET, GMAIL_APP_PASSWORD y GMAIL_APP_PASSWORD_TIENDA se configuran
+# como secretos, NO en este archivo:
+#   wrangler secret put GMAIL_APP_PASSWORD_TIENDA
 # GEMINI_API_KEY también va como Secret (Settings -> Variables and Secrets -> Encrypt).
