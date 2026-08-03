@@ -83,7 +83,8 @@ export async function handleAuth(request, env, url) {
     const token = await firmarSesion(env, { uid: id, email: emailNorm, tipo: "cliente", tv: 0 });
     const row = await env.DB.prepare("SELECT * FROM clientes WHERE id = ?").bind(id).first();
     try {
-      await enviarEmailBienvenida(env, emailNorm, texto(datos.nombre, 80));
+      const origenFrontend = env.CORS_ORIGIN && env.CORS_ORIGIN !== "*" ? env.CORS_ORIGIN : url.origin;
+      await enviarEmailBienvenida(env, emailNorm, texto(datos.nombre, 80), origenFrontend);
     } catch (err) {
       console.error("No se pudo enviar el mail de bienvenida:", err);
     }
