@@ -2205,6 +2205,26 @@ let _routerRunCount = 0;
 async function router() {
   _routerRunCount++;
   const { vista, param, params } = parseHash();
+
+  // Atajo corto para el link "Cómo llegar" del mensaje de WhatsApp de
+  // retiro (ver pedidos.js en el Worker): no es una vista real de la SPA,
+  // solo manda a Google Maps con la ubicación configurada. Al leer CONFIG
+  // en el momento del clic (no al momento del pedido), si más adelante
+  // cambiás la dirección de la tienda, los links viejos ya enviados también
+  // apuntan solos a la dirección nueva.
+  if (vista === "como-llegar") {
+    const lat = Number(CONFIG.ubicacionLat), lng = Number(CONFIG.ubicacionLng);
+    const destino = Number.isFinite(lat) && Number.isFinite(lng)
+      ? `${lat},${lng}`
+      : (CONFIG.direccionContacto || "");
+    if (destino) {
+      location.replace(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`);
+    } else {
+      location.hash = "#/contacto"; // no hay dirección cargada: Contacto como respaldo
+    }
+    return;
+  }
+
   document.querySelectorAll(".vista").forEach((s) => { s.classList.remove("activa"); s.style.display = ""; });
   const seccion = document.querySelector(`[data-view="${vista}"]`);
   if (!seccion) { location.hash = "#/"; return; }
