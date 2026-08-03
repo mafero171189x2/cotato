@@ -120,6 +120,9 @@ CREATE TABLE IF NOT EXISTS pedidos (
   envio             REAL NOT NULL DEFAULT 0,
   zona_envio        TEXT NOT NULL DEFAULT '',
   estado            TEXT NOT NULL DEFAULT 'pendiente', -- pendiente|pagado|preparacion|enviado|entregado|cancelado
+  -- 1 = el cliente pasa a retirar por el local (sin envío ni costo);
+  -- 0 = envío a domicilio (comportamiento de siempre).
+  es_retiro         INTEGER NOT NULL DEFAULT 0,
   stock_devuelto    INTEGER NOT NULL DEFAULT 0,
   mensaje_whatsapp  TEXT NOT NULL DEFAULT '',
   fecha             TEXT NOT NULL DEFAULT (datetime('now'))
